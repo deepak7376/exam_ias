@@ -8,6 +8,8 @@ import '../../presentation/pages/analytics/analytics_page.dart';
 import '../../presentation/pages/profile/profile_page.dart';
 import '../../presentation/pages/mains/mains_page.dart';
 import '../../presentation/pages/feedback/feedback_page.dart';
+import '../../presentation/pages/tests/tests_page.dart';
+import '../../presentation/pages/exam_detail/exam_detail_page.dart';
 
 class AppRouter {
   static const String onboarding = '/onboarding';
@@ -19,6 +21,8 @@ class AppRouter {
   static const String profile = '/profile';
   static const String mains = '/mains';
   static const String feedback = '/feedback';
+  static const String tests = '/tests';
+  static const String exam = '/exam';
 
   static final GoRouter router = GoRouter(
     initialLocation: onboarding,
@@ -70,6 +74,17 @@ class AppRouter {
           final testId = state.pathParameters['testId']!;
           final testTitle = state.uri.queryParameters['title'] ?? 'Test';
           return FeedbackPage(testId: testId, testTitle: testTitle);
+        },
+      ),
+      GoRoute(
+        path: tests,
+        builder: (context, state) => const TestsPage(),
+      ),
+      GoRoute(
+        path: '$exam/:examId',
+        builder: (context, state) {
+          final examId = state.pathParameters['examId']!;
+          return ExamDetailPage(examId: examId);
         },
       ),
     ],

@@ -596,8 +596,42 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTestsContent() {
-    return const Center(
-      child: Text('Tests Page - Coming Soon'),
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.quiz, size: 64, color: AppColors.primary),
+          const SizedBox(height: 16),
+          Text(
+            'Real Exam Experience',
+            style: AppTextStyles.headlineSmall.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Take full-length Prelims and Mains mock tests',
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => context.go('/tests'),
+            icon: const Icon(Icons.arrow_forward),
+            label: const Text('Go to Tests'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
