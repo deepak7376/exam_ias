@@ -1,0 +1,110 @@
+Excellent call, Deepak 👏 — adding **one “main” subject** (a complete subject module) in your **Alpha version** is the right way to make the app *feel full and valuable*, even if it’s minimal.
+
+Let’s plan this strategically so your **Alpha feels complete but lightweight** — something you can confidently demo to users, investors, or mentors.
+
+---
+
+## 🧠 Step 1: Pick the Right “Main Subject” for Alpha
+
+Since you want the app to feel *substantial*, pick a subject that’s:
+
+✅ High demand among UPSC aspirants
+✅ Conceptually rich but not too vast for content creation
+✅ Easy to expand later into both Prelims + Mains overlap
+
+### Best choice: **Indian Polity**
+
+**Why:**
+
+* It’s foundational (appears in both Prelims & Mains GS Paper II).
+* Students love revising it frequently.
+* Easy to modularize into chapters/tests.
+* Perfect for building both objective (Prelims-style) and subjective (Mains-style) questions.
+
+---
+
+## 📚 Step 2: Define “Polity Module” Structure (Complete Subject)
+
+Make it feel *like a self-contained mini-course/test series.*
+
+| Component               | Example                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| 📘 **Subject Name**     | Indian Polity                                                                  |
+| 📖 **Chapters (10–12)** | Constitution, Preamble, Fundamental Rights, DPSPs, Parliament, Judiciary, etc. |
+| 🧩 **Mini Tests**       | 1 per chapter (20–25 questions each)                                           |
+| 🧠 **Full-length Test** | 1 Polity Mock Test (100 questions)                                             |
+| 🏁 **Mains Section**    | 3–5 practice questions (with AI/mentor feedback option)                        |
+| 📊 **Analytics Page**   | Strength–Weakness by topic, Accuracy %, Attempt History                        |
+
+---
+
+## 🧩 Step 3: Alpha Version Feature Plan
+
+| Area                       | Feature                                       | Goal             |
+| -------------------------- | --------------------------------------------- | ---------------- |
+| **1. Onboarding**          | Simple sign-up + subject selection (“Polity”) | Start cleanly    |
+| **2. Dashboard**           | Shows “Polity Module” card with progress bar  | Feels structured |
+| **3. Test Engine**         | MCQ test, timer, result, explanations         | Core engagement  |
+| **4. Analytics**           | Accuracy %, topic strengths                   | Adds stickiness  |
+| **5. Mains Mini**          | 2–3 descriptive questions (text box answer)   | Realistic touch  |
+| **6. Feedback**            | Submit feedback after each test               | Validation       |
+| **7. Admin Panel (basic)** | Upload questions + view responses             | Internal control |
+
+You can build all this with **1 subject** and still give a *complete experience* of the app’s value.
+
+---
+
+## ⚙️ Step 4: Content Plan for Alpha
+
+| Content Type            | Quantity                  | Notes                            |
+| ----------------------- | ------------------------- | -------------------------------- |
+| Chapter-wise Mini Tests | 10 × 25 = 250 questions   | Reusable for sectional tests     |
+| Full-length Polity Test | 1 × 100 = 100 questions   | Simulates UPSC                   |
+| Mains Descriptive Qs    | 5–6                       | For testing AI/mentor evaluation |
+| Explanations            | 1–2 lines per MCQ         | For quick learning               |
+| Feedback prompts        | 3 (Easy/Medium/Difficult) | Helps improve later              |
+
+**Total:** ~350–400 questions — enough for an Alpha release that feels “big.”
+
+---
+
+## 🧱 Step 5: Database Adaptation (for One Subject)
+
+In Alpha, your database can be simplified as:
+
+```
+subjects/
+  polity/
+    tests/
+      mini_test_1/
+        questions/
+      mini_test_2/
+      full_length_test/
+    mains_tests/
+```
+
+User responses, analytics, etc. will still use the same schema I shared earlier — so you won’t have to change anything later.
+
+---
+
+## 🧭 Step 6: Incremental Path from Here
+
+| Phase           | New Additions                     | Goal                                |
+| --------------- | --------------------------------- | ----------------------------------- |
+| **Alpha (Now)** | 1 subject (Polity)                | Validate core app, UX, and feedback |
+| **Beta (3 mo)** | Add Economy + Geography           | Build momentum                      |
+| **Full (6 mo)** | Add all Prelims + Mains GS papers | Complete ecosystem                  |
+
+---
+
+## 🎯 Why This Works
+
+* Feels like a *complete module*, not a half-built demo.
+* Lets users complete something, see progress, and share feedback.
+* Keeps your database and backend identical for future subjects.
+* Demonstrates all major app flows — login → test → result → analytics.
+
+---
+
+Would you like me to sketch a **flow diagram (visual)** showing how the user journey will look in this Alpha version — from “Home Screen → Polity Tests → Result → Analytics”?
+It’ll help your developer or designer visualize the structure.
