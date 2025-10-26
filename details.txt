@@ -108,3 +108,104 @@ User responses, analytics, etc. will still use the same schema I shared earlier 
 
 Would you like me to sketch a **flow diagram (visual)** showing how the user journey will look in this Alpha version — from “Home Screen → Polity Tests → Result → Analytics”?
 It’ll help your developer or designer visualize the structure.
+
+
+
+## 🧭 UPSC Exam Structure Overview
+
+UPSC has **3 stages** — Prelims, Mains, and Interview.
+
+Your test series app would mainly cover **Prelims and Mains** (Interview is subjective and can be later added as mentorship).
+
+---
+
+### **1️⃣ Preliminary Examination (Objective Type)**
+
+Two papers — both conducted on same day.
+
+| Paper                               | Subject                                                                          | Marks | Duration | Notes            |
+| ----------------------------------- | -------------------------------------------------------------------------------- | ----- | -------- | ---------------- |
+| **Paper I – General Studies (GS)**  | Current Affairs, History, Geography, Polity, Economy, Environment, Science, etc. | 200   | 2 hours  | Counts for merit |
+| **Paper II – CSAT (Aptitude Test)** | Comprehension, Reasoning, Maths, Decision Making                                 | 200   | 2 hours  | Qualifying (33%) |
+
+#### ✅ You can make **2 Prelims test series types:**
+
+* Full-length GS Paper I mock tests (based on yearly pattern)
+* Full-length CSAT tests + sectional quizzes
+
+You can also add **Topic-wise mini tests**:
+
+* History (Ancient/Medieval/Modern)
+* Polity
+* Geography
+* Environment
+* Economy
+* Current Affairs (Monthly/Weekly)
+
+So roughly **8–10 subjects for Prelims**, each with sectional + full tests.
+
+---
+
+### **2️⃣ Mains Examination (Descriptive Type)**
+
+Total **9 papers** (7 count for merit, 2 qualifying).
+
+| Paper     | Subject                                                                 | Marks | Notes            |
+| --------- | ----------------------------------------------------------------------- | ----- | ---------------- |
+| Paper A   | Indian Language                                                         | 300   | Qualifying       |
+| Paper B   | English                                                                 | 300   | Qualifying       |
+| Paper I   | Essay                                                                   | 250   | Counts for merit |
+| Paper II  | GS Paper I – Indian Heritage & Culture, History, Geography              | 250   |                  |
+| Paper III | GS Paper II – Polity, Governance, IR                                    | 250   |                  |
+| Paper IV  | GS Paper III – Economy, Science, Tech, Environment, Disaster Management | 250   |                  |
+| Paper V   | GS Paper IV – Ethics, Integrity, Aptitude                               | 250   |                  |
+| Paper VI  | Optional Paper I                                                        | 250   |                  |
+| Paper VII | Optional Paper II                                                       | 250   |                  |
+
+---
+
+#### ✅ You can make **Mains test series types:**
+
+**A. General Studies (4 Papers → 4 Test Series)**
+Each paper can have 5–10 mock tests following UPSC pattern.
+
+**B. Essay Test Series (1)**
+Weekly essay writing challenge with AI/mentor evaluation.
+
+---
+
+### **3️⃣ Total Subject Areas to Cover in App**
+
+| Category             | Approx. Subject/Test Areas            |
+| -------------------- | ------------------------------------- |
+| Prelims – GS Paper I | 8–10 (History, Polity, Economy, etc.) |
+| Prelims – CSAT       | 3 (Quant, Reasoning, Comprehension)   |
+| Mains – GS I–IV      | 4                                     |
+| Mains – Essay        | 1                                     |
+
+➡️ **So total: around 15–20 core subject categories** to begin with.
+You can later expand to **35–40 test series types** including optionals, topic-wise, and full-length mocks.
+
+---
+
+ChapterModel({
+    required this.id,
+    required this.subjectId,
+    required this.title,
+    required this.description,
+    required this.order,
+    required this.totalQuestions,
+    required this.isCompleted,
+    this.accuracy,
+  });
+
+
+ChapterModel(
+        id: 'geo_2',
+        order: 2,
+        title: 'Human Geography',
+        description: 'Population, Settlements, Economic Activities',
+        totalQuestions: 20,
+        durationMinutes: 25,
+        isCompleted: false,
+      ),

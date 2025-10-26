@@ -1,0 +1,521 @@
+# 🗄️ IAS Test Series App - Database Design Document
+
+## 📋 Table of Contents
+1. [Database Overview](#database-overview)
+2. [Technology Recommendation](#technology-recommendation)
+3. [Core Tables](#core-tables)
+4. [Relationships](#relationships)
+5. [Indexes & Performance](#indexes--performance)
+6. [Security Considerations](#security-considerations)
+7. [Migration Strategy](#migration-strategy)
+8. [API Endpoints](#api-endpoints)
+
+---
+
+## 🎯 Database Overview
+
+### Application Requirements
+- **User Management**: Registration, authentication, profile management
+- **Subject Management**: Multiple subjects (Polity, Geography, Economy, etc.)
+- **Content Management**: Chapters, tests, questions, answers
+- **Progress Tracking**: User progress, analytics, performance metrics
+- **Exam System**: Real-time exams, results, feedback
+- **Analytics**: Performance insights, recommendations
+
+### Data Volume Estimates
+- **Users**: 10,000 - 100,000 (scalable)
+- **Questions**: 50,000+ (across all subjects)
+- **Tests**: 1,000+ (chapter tests + full exams)
+- **User Responses**: 1M+ (grows with usage)
+- **Analytics Data**: 10M+ records
+
+---
+
+## 🚀 Technology Recommendation
+
+### **Recommended: Supabase** ⭐
+
+#### Why Supabase over Firebase?
+
+| Feature | Supabase | Firebase |
+|---------|----------|----------|
+| **Database** | PostgreSQL (SQL) | Firestore (NoSQL) |
+| **Querying** | SQL (familiar) | Complex queries |
+| **Relationships** | Native foreign keys | Manual references |
+| **ACID Compliance** | ✅ Full ACID | ❌ Eventual consistency |
+| **Real-time** | ✅ Built-in | ✅ Built-in |
+| **Authentication** | ✅ Built-in | ✅ Built-in |
+| **File Storage** | ✅ Built-in | ✅ Built-in |
+| **Pricing** | More predictable | Can be expensive |
+| **Learning Curve** | SQL knowledge | NoSQL concepts |
+
+#### **Key Advantages for IAS App:**
+1. **Complex Queries**: Need complex analytics queries (SQL is better)
+2. **Data Integrity**: ACID compliance for exam data
+3. **Relationships**: Strong relationships between users, tests, questions
+4. **Cost Predictability**: Fixed pricing vs usage-based
+5. **PostgreSQL**: Rich ecosystem, extensions, full-text search
+
+---
+
+## 📊 Core Tables
+
+### 1. **Users Table**
+```sql
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    phone VARCHAR(20),
+    avatar_url TEXT,
+    date_of_birth DATE,
+    target_year INTEGER,
+    preferred_subjects TEXT[], -- Array of subject IDs
+    study_goals TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_login TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN DEFAULT true,
+    subscription_tier VARCHAR(50) DEFAULT 'free', -- free, premium, pro
+    subscription_expires_at TIMESTAMP WITH TIME ZONE
+);
+```
+
+### 2. **Subjects Table**
+```sql
+CREATE TABLE subjects (
+    id VARCHAR(50) PRIMARY KEY, -- 'polity', 'geography', 'economy'
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    icon VARCHAR(10), -- Emoji or icon code
+    color VARCHAR(7), -- Hex color code
+    is_available BOOLEAN DEFAULT false,
+    total_chapters INTEGER DEFAULT 0,
+    total_tests INTEGER DEFAULT 0,
+    total_questions INTEGER DEFAULT 0,
+    estimated_duration_hours INTEGER DEFAULT 0,
+    difficulty_level VARCHAR(20) DEFAULT 'intermediate', -- beginner, intermediate, advanced
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 3. **Chapters Table**
+```sql
+CREATE TABLE chapters (
+    id VARCHAR(50) PRIMARY KEY,
+    subject_id VARCHAR(50) REFERENCES subjects(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    order_index INTEGER NOT NULL,
+    total_questions INTEGER DEFAULT 0,
+    estimated_duration_minutes INTEGER DEFAULT 30,
+    difficulty_level VARCHAR(20) DEFAULT 'intermediate',
+    prerequisites TEXT[], -- Array of chapter IDs
+    learning_objectives TEXT[],
+    is_published BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    
+    UNIQUE(subject_id, order_index)
+);
+```
+
+### 4. **Questions Table**
+```sql
+CREATE TABLE questions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chapter_id VARCHAR(50) REFERENCES chapters(id) ON DELETE CASCADE,
+    question_text TEXT NOT NULL,
+    question_type VARCHAR(20) NOT NULL, -- 'mcq', 'true_false', 'fill_blank', 'essay'
+    difficulty_level VARCHAR(20) DEFAULT 'intermediate',
+    marks INTEGER DEFAULT 1,
+    negative_marks DECIMAL(3,2) DEFAULT 0.33,
+    explanation TEXT,
+    source VARCHAR(255), -- Reference book, year, etc.
+    tags TEXT[], -- Array of tags for categorization
+    is_published BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 5. **Question Options Table**
+```sql
+CREATE TABLE question_options (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
+    option_text TEXT NOT NULL,
+    option_letter VARCHAR(1) NOT NULL, -- A, B, C, D
+    is_correct BOOLEAN DEFAULT false,
+    explanation TEXT, -- Why this option is correct/incorrect
+    order_index INTEGER NOT NULL,
+    
+    UNIQUE(question_id, option_letter)
+);
+```
+
+### 6. **Tests Table**
+```sql
+CREATE TABLE tests (
+    id VARCHAR(50) PRIMARY KEY,
+    subject_id VARCHAR(50) REFERENCES subjects(id) ON DELETE CASCADE,
+    chapter_id VARCHAR(50) REFERENCES chapters(id) ON DELETE SET NULL, -- NULL for full-length tests
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    test_type VARCHAR(20) NOT NULL, -- 'chapter', 'full_length', 'mock', 'practice'
+    duration_minutes INTEGER NOT NULL,
+    total_questions INTEGER NOT NULL,
+    total_marks INTEGER NOT NULL,
+    passing_marks INTEGER DEFAULT 0,
+    negative_marking BOOLEAN DEFAULT true,
+    is_timed BOOLEAN DEFAULT true,
+    is_published BOOLEAN DEFAULT false,
+    instructions TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 7. **Test Questions Table** (Many-to-Many)
+```sql
+CREATE TABLE test_questions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    test_id VARCHAR(50) REFERENCES tests(id) ON DELETE CASCADE,
+    question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
+    question_order INTEGER NOT NULL,
+    marks INTEGER DEFAULT 1,
+    
+    UNIQUE(test_id, question_id),
+    UNIQUE(test_id, question_order)
+);
+```
+
+### 8. **User Test Attempts Table**
+```sql
+CREATE TABLE user_test_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    test_id VARCHAR(50) REFERENCES tests(id) ON DELETE CASCADE,
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    submitted_at TIMESTAMP WITH TIME ZONE,
+    time_taken_minutes INTEGER,
+    total_questions INTEGER NOT NULL,
+    attempted_questions INTEGER DEFAULT 0,
+    correct_answers INTEGER DEFAULT 0,
+    wrong_answers INTEGER DEFAULT 0,
+    marks_obtained DECIMAL(10,2) DEFAULT 0,
+    percentage DECIMAL(5,2) DEFAULT 0,
+    status VARCHAR(20) DEFAULT 'in_progress', -- 'in_progress', 'completed', 'abandoned'
+    is_passed BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 9. **User Responses Table**
+```sql
+CREATE TABLE user_responses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    attempt_id UUID REFERENCES user_test_attempts(id) ON DELETE CASCADE,
+    question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
+    selected_option_id UUID REFERENCES question_options(id) ON DELETE SET NULL,
+    response_text TEXT, -- For essay/descriptive questions
+    is_correct BOOLEAN,
+    marks_obtained DECIMAL(5,2) DEFAULT 0,
+    time_spent_seconds INTEGER DEFAULT 0,
+    is_flagged BOOLEAN DEFAULT false, -- Mark for review
+    answered_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 10. **Exams Table** (Real Exam System)
+```sql
+CREATE TABLE exams (
+    id VARCHAR(50) PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    exam_type VARCHAR(20) NOT NULL, -- 'prelims', 'mains', 'both'
+    quarter VARCHAR(10) NOT NULL, -- 'Q1', 'Q2', 'Q3', 'Q4'
+    year INTEGER NOT NULL,
+    release_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_active BOOLEAN DEFAULT false,
+    total_papers INTEGER DEFAULT 2, -- Prelims + Mains
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 11. **Exam Papers Table**
+```sql
+CREATE TABLE exam_papers (
+    id VARCHAR(50) PRIMARY KEY,
+    exam_id VARCHAR(50) REFERENCES exams(id) ON DELETE CASCADE,
+    paper_type VARCHAR(20) NOT NULL, -- 'prelims', 'mains'
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    duration_minutes INTEGER NOT NULL,
+    total_questions INTEGER NOT NULL,
+    total_marks INTEGER NOT NULL,
+    subjects TEXT[] NOT NULL, -- Array of subjects covered
+    is_published BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 12. **User Progress Table**
+```sql
+CREATE TABLE user_progress (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    subject_id VARCHAR(50) REFERENCES subjects(id) ON DELETE CASCADE,
+    chapter_id VARCHAR(50) REFERENCES chapters(id) ON DELETE CASCADE,
+    progress_percentage DECIMAL(5,2) DEFAULT 0,
+    chapters_completed INTEGER DEFAULT 0,
+    tests_completed INTEGER DEFAULT 0,
+    total_time_spent_minutes INTEGER DEFAULT 0,
+    average_score DECIMAL(5,2) DEFAULT 0,
+    last_activity TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    
+    UNIQUE(user_id, subject_id, chapter_id)
+);
+```
+
+### 13. **Analytics Table**
+```sql
+CREATE TABLE analytics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    metric_name VARCHAR(100) NOT NULL, -- 'accuracy', 'speed', 'weak_areas'
+    metric_value DECIMAL(10,4) NOT NULL,
+    subject_id VARCHAR(50) REFERENCES subjects(id) ON DELETE SET NULL,
+    chapter_id VARCHAR(50) REFERENCES chapters(id) ON DELETE SET NULL,
+    test_id VARCHAR(50) REFERENCES tests(id) ON DELETE SET NULL,
+    metadata JSONB, -- Additional context data
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 14. **Feedback Table**
+```sql
+CREATE TABLE feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    test_id VARCHAR(50) REFERENCES tests(id) ON DELETE CASCADE,
+    rating_content INTEGER CHECK (rating_content >= 1 AND rating_content <= 5),
+    rating_difficulty INTEGER CHECK (rating_difficulty >= 1 AND rating_difficulty <= 5),
+    rating_ux INTEGER CHECK (rating_ux >= 1 AND rating_ux <= 5),
+    comments TEXT,
+    suggestions TEXT,
+    is_helpful BOOLEAN,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+---
+
+## 🔗 Relationships
+
+### **Primary Relationships:**
+1. **Users** → **User Test Attempts** (1:Many)
+2. **Subjects** → **Chapters** (1:Many)
+3. **Chapters** → **Questions** (1:Many)
+4. **Questions** → **Question Options** (1:Many)
+5. **Tests** → **Test Questions** (1:Many)
+6. **Test Questions** → **Questions** (Many:Many)
+7. **User Test Attempts** → **User Responses** (1:Many)
+8. **Exams** → **Exam Papers** (1:Many)
+
+### **Key Constraints:**
+- Cascade delete for dependent data
+- Set NULL for optional references
+- Unique constraints on business logic
+- Check constraints for data validation
+
+---
+
+## ⚡ Indexes & Performance
+
+### **Primary Indexes:**
+```sql
+-- User queries
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_created_at ON users(created_at);
+
+-- Test performance
+CREATE INDEX idx_user_attempts_user_test ON user_test_attempts(user_id, test_id);
+CREATE INDEX idx_user_attempts_status ON user_test_attempts(status);
+CREATE INDEX idx_user_responses_attempt ON user_responses(attempt_id);
+
+-- Analytics queries
+CREATE INDEX idx_analytics_user_metric ON analytics(user_id, metric_name);
+CREATE INDEX idx_analytics_recorded_at ON analytics(recorded_at);
+
+-- Content queries
+CREATE INDEX idx_questions_chapter ON questions(chapter_id);
+CREATE INDEX idx_questions_published ON questions(is_published);
+CREATE INDEX idx_tests_subject ON tests(subject_id);
+```
+
+### **Composite Indexes:**
+```sql
+-- User progress tracking
+CREATE INDEX idx_user_progress_user_subject ON user_progress(user_id, subject_id);
+
+-- Test performance analytics
+CREATE INDEX idx_attempts_user_subject_date ON user_test_attempts(user_id, test_id, started_at);
+
+-- Question filtering
+CREATE INDEX idx_questions_chapter_difficulty ON questions(chapter_id, difficulty_level);
+```
+
+---
+
+## 🔒 Security Considerations
+
+### **Row Level Security (RLS):**
+```sql
+-- Enable RLS on all tables
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_test_attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_responses ENABLE ROW LEVEL SECURITY;
+
+-- Users can only access their own data
+CREATE POLICY user_data_policy ON users
+    FOR ALL USING (auth.uid() = id);
+
+CREATE POLICY user_attempts_policy ON user_test_attempts
+    FOR ALL USING (auth.uid() = user_id);
+```
+
+### **Data Encryption:**
+- **At Rest**: Supabase handles encryption
+- **In Transit**: HTTPS/TLS
+- **Sensitive Data**: Hash passwords, encrypt PII
+
+### **Access Control:**
+- **Admin Role**: Full access to all data
+- **User Role**: Access to own data only
+- **Analyst Role**: Read-only access to analytics
+
+---
+
+## 🚀 Migration Strategy
+
+### **Phase 1: Core Setup**
+1. Create Supabase project
+2. Set up authentication
+3. Create core tables (users, subjects, chapters)
+4. Implement basic CRUD operations
+
+### **Phase 2: Content Management**
+1. Add questions and tests tables
+2. Implement content management system
+3. Add file storage for images/documents
+4. Set up content publishing workflow
+
+### **Phase 3: Test System**
+1. Implement test attempt system
+2. Add real-time exam functionality
+3. Set up result calculation
+4. Add progress tracking
+
+### **Phase 4: Analytics & Optimization**
+1. Implement analytics collection
+2. Add performance monitoring
+3. Optimize queries and indexes
+4. Set up automated backups
+
+---
+
+## 🔌 API Endpoints
+
+### **Authentication:**
+```
+POST /auth/register
+POST /auth/login
+POST /auth/logout
+POST /auth/refresh
+```
+
+### **User Management:**
+```
+GET /users/profile
+PUT /users/profile
+GET /users/progress
+GET /users/analytics
+```
+
+### **Content:**
+```
+GET /subjects
+GET /subjects/{id}/chapters
+GET /chapters/{id}/questions
+GET /tests
+GET /tests/{id}/questions
+```
+
+### **Test System:**
+```
+POST /tests/{id}/start
+POST /tests/{id}/submit
+GET /tests/{id}/results
+GET /user/attempts
+```
+
+### **Analytics:**
+```
+GET /analytics/overview
+GET /analytics/subject/{id}
+GET /analytics/performance
+GET /analytics/recommendations
+```
+
+---
+
+## 📊 Database Monitoring
+
+### **Key Metrics:**
+- **Query Performance**: Average response time < 100ms
+- **Connection Pool**: Monitor active connections
+- **Storage Usage**: Track database growth
+- **Error Rate**: < 0.1% error rate
+- **Uptime**: 99.9% availability
+
+### **Monitoring Tools:**
+- **Supabase Dashboard**: Built-in monitoring
+- **PostgreSQL Stats**: Query performance
+- **Custom Analytics**: Business metrics
+- **Alerting**: Set up alerts for critical issues
+
+---
+
+## 💰 Cost Estimation (Supabase)
+
+### **Monthly Costs (Estimated):**
+- **Database**: $25/month (Pro plan)
+- **Storage**: $0.125/GB (minimal for text data)
+- **Bandwidth**: $0.09/GB
+- **Auth**: Free (up to 50k MAU)
+- **Storage**: $0.125/GB
+
+### **Total Estimated**: $30-50/month for 10k users
+
+---
+
+## 🎯 Next Steps
+
+1. **Set up Supabase project**
+2. **Create database schema**
+3. **Implement authentication**
+4. **Build core API endpoints**
+5. **Set up monitoring and alerts**
+6. **Plan migration from mock data**
+
+---
+
+*This database design provides a solid foundation for the IAS Test Series application with room for future growth and feature additions.*

@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/services/mock_data_service.dart';
-import '../../../data/services/polity_content_service.dart';
+import '../../../data/services/subject_content_service.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/models/subject_model.dart';
-import '../../../data/models/chapter_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
-import '../../widgets/progress_card.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -18,18 +16,37 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final MockDataService _mockDataService = MockDataService();
-  final PolityContentService _polityService = PolityContentService();
+  final SubjectContentService _subjectContentService = SubjectContentService();
   late UserModel _user;
   late List<SubjectModel> _subjects;
-  late List<ChapterModel> _polityChapters;
+  late Map<String, dynamic> _overallProgress;
+  late List<Map<String, dynamic>> _recommendations;
   int _currentIndex = 0;
+  int _selectedSubjectIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    _loadData();
+  }
+
+  void _loadData() {
     _user = _mockDataService.getCurrentUser();
-    _subjects = _mockDataService.getSubjects();
-    _polityChapters = _polityService.getPolityChapters();
+    _subjects = _subjectContentService.getAllSubjectsWithContent();
+    _overallProgress = _subjectContentService.getOverallProgress();
+    _recommendations = _subjectContentService.getSmartRecommendations();
+    _loadCurrentSubjectContent();
+  }
+
+  void _loadCurrentSubjectContent() {
+    // Load current subject content if needed
+  }
+
+  void _onSubjectChanged(int index) {
+    setState(() {
+      _selectedSubjectIndex = index;
+      _loadCurrentSubjectContent();
+    });
   }
 
   @override
@@ -101,12 +118,119 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           const SizedBox(height: 20),
-          ProgressCard(
-            progress: _user.overallProgress,
-            title: 'Your Prep Progress',
-            subtitle: '${_user.overallProgress.toInt()}% 📈',
+          _buildOverallProgressCard(),
+          const SizedBox(height: 16),
+          _buildSubjectSelector(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOverallProgressCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Overall Progress',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: Colors.white70,
+                  ),
+                ),
+                Text(
+                  '${_overallProgress['overallProgress'].toInt()}% 📈',
+                  style: AppTextStyles.headlineSmall.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            children: [
+              Text(
+                '${_overallProgress['completedChapters']}/${_overallProgress['totalChapters']}',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: Colors.white70,
+                ),
+              ),
+              Text(
+                'Chapters',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: Colors.white70,
+                ),
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSubjectSelector() {
+    return Container(
+      height: 50,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _subjects.length,
+        itemBuilder: (context, index) {
+          final subject = _subjects[index];
+          final isSelected = index == _selectedSubjectIndex;
+          final subjectProgress = _subjectContentService.getSubjectProgress(subject.id);
+          
+          return GestureDetector(
+            onTap: () => _onSubjectChanged(index),
+            child: Container(
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(25),
+                border: Border.all(
+                  color: isSelected ? Colors.white : Colors.white.withOpacity(0.5),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    subject.icon,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    subject.name,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: isSelected ? AppColors.primary : Colors.white,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                  if (subjectProgress['isAvailable']) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.success : Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -132,22 +256,138 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildPolityModuleCard(),
+          _buildCrossSubjectOverview(),
+          const SizedBox(height: 24),
+          _buildCurrentSubjectContent(),
+          const SizedBox(height: 24),
+          _buildSmartRecommendations(),
           const SizedBox(height: 24),
           _buildQuickActions(),
-          const SizedBox(height: 24),
-          _buildChapterProgress(),
-          const SizedBox(height: 24),
-          _buildOtherSubjects(),
         ],
       ),
     );
   }
 
-  Widget _buildPolityModuleCard() {
-    final completedChapters = _polityChapters.where((ch) => ch.isCompleted).length;
-    final totalChapters = _polityChapters.length;
-    final progress = (completedChapters / totalChapters) * 100;
+  Widget _buildCrossSubjectOverview() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.dashboard, color: AppColors.primary, size: 24),
+              const SizedBox(width: 8),
+              Text(
+                'Cross-Subject Overview',
+                style: AppTextStyles.headlineSmall.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ..._overallProgress['subjectProgresses'].map<Widget>((progress) {
+            final subject = _subjects.firstWhere((s) => s.id == progress['subjectId']);
+            return _buildSubjectProgressItem(subject, progress);
+          }).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubjectProgressItem(SubjectModel subject, Map<String, dynamic> progress) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: progress['isAvailable'] 
+            ? AppColors.primary.withOpacity(0.1) 
+            : AppColors.disabled.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: progress['isAvailable'] 
+              ? AppColors.primary.withOpacity(0.3) 
+              : AppColors.disabled.withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Text(
+            subject.icon,
+            style: const TextStyle(fontSize: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  subject.name,
+                  style: AppTextStyles.bodyLarge.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: progress['isAvailable'] ? AppColors.textPrimary : AppColors.textSecondary,
+                  ),
+                ),
+                Text(
+                  progress['isAvailable'] 
+                      ? '${progress['completedChapters']}/${progress['totalChapters']} chapters'
+                      : 'Coming Soon',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (progress['isAvailable']) ...[
+            CircularProgressIndicator(
+              value: progress['overallProgress'] / 100,
+              strokeWidth: 3,
+              color: AppColors.primary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${progress['overallProgress'].toInt()}%',
+              style: AppTextStyles.bodySmall.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ] else
+            const Icon(Icons.lock, color: AppColors.disabled, size: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrentSubjectContent() {
+    final currentSubject = _subjects[_selectedSubjectIndex];
+    final subjectProgress = _subjectContentService.getSubjectProgress(currentSubject.id);
+    
+    if (!subjectProgress['isAvailable']) {
+      return _buildComingSoonCard(currentSubject);
+    }
+    
+    return _buildSubjectModuleCard(currentSubject, subjectProgress);
+  }
+
+  Widget _buildSubjectModuleCard(SubjectModel subject, Map<String, dynamic> progress) {
+    final completedChapters = progress['completedChapters'];
+    final totalChapters = progress['totalChapters'];
+    final chapterProgress = progress['chapterProgress'];
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -171,14 +411,14 @@ class _HomePageState extends State<HomePage> {
         children: [
           Row(
             children: [
-              const Text('📘', style: TextStyle(fontSize: 32)),
+              Text(subject.icon, style: const TextStyle(fontSize: 32)),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Indian Polity Module',
+                      '${subject.name} Module',
                       style: AppTextStyles.headline.copyWith(
                         color: Colors.white,
                         fontSize: 22,
@@ -186,7 +426,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     Text(
-                      'Complete preparation for UPSC Polity',
+                      'Complete preparation for UPSC ${subject.name}',
                       style: AppTextStyles.bodyMedium.copyWith(
                         color: Colors.white70,
                       ),
@@ -200,23 +440,28 @@ class _HomePageState extends State<HomePage> {
           Row(
             children: [
               Expanded(
-                child: _buildModuleStat('Chapters', '$completedChapters/$totalChapters'),
+                child: _buildModuleStat('Chapters', '$completedChapters/$totalChapters', Colors.white),
               ),
               Expanded(
-                child: _buildModuleStat('Progress', '${progress.toInt()}%'),
+                child: _buildModuleStat('Progress', '${chapterProgress.toInt()}%', Colors.white),
               ),
               Expanded(
-                child: _buildModuleStat('Tests', '${totalChapters + 1}'),
+                child: _buildModuleStat('Tests', '${progress['totalTests']}', Colors.white),
               ),
             ],
+          ),
+          const SizedBox(height: 20),
+          LinearProgressIndicator(
+            value: chapterProgress / 100,
+            backgroundColor: Colors.white.withOpacity(0.3),
+            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+            minHeight: 8,
           ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => context.go('/subject/polity'),
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Start Learning'),
+            child: ElevatedButton(
+              onPressed: () => context.go('/subject/${subject.id}'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: AppColors.primary,
@@ -225,6 +470,7 @@ class _HomePageState extends State<HomePage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
+              child: const Text('Continue Learning'),
             ),
           ),
         ],
@@ -232,23 +478,171 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildModuleStat(String label, String value) {
+  Widget _buildModuleStat(String label, String value, Color color) {
     return Column(
       children: [
         Text(
           value,
           style: AppTextStyles.headlineSmall.copyWith(
-            color: Colors.white,
+            color: color,
             fontWeight: FontWeight.bold,
           ),
         ),
         Text(
           label,
           style: AppTextStyles.bodySmall.copyWith(
-            color: Colors.white70,
+            color: color.withOpacity(0.8),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildComingSoonCard(SubjectModel subject) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.disabled.withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(subject.icon, style: const TextStyle(fontSize: 48)),
+          const SizedBox(height: 16),
+          Text(
+            '${subject.name} Module',
+            style: AppTextStyles.headlineSmall.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Coming Soon!',
+            style: AppTextStyles.bodyLarge.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.disabled.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.schedule, color: AppColors.disabled, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'Under Development',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.disabled,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSmartRecommendations() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.lightbulb, color: AppColors.warning, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              'Smart Recommendations',
+              style: AppTextStyles.headlineSmall.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        ..._recommendations.map((recommendation) => _buildRecommendationCard(recommendation)).toList(),
+      ],
+    );
+  }
+
+  Widget _buildRecommendationCard(Map<String, dynamic> recommendation) {
+    Color priorityColor;
+    IconData priorityIcon;
+    
+    switch (recommendation['priority']) {
+      case 'high':
+        priorityColor = AppColors.error;
+        priorityIcon = Icons.priority_high;
+        break;
+      case 'medium':
+        priorityColor = AppColors.warning;
+        priorityIcon = Icons.info;
+        break;
+      default:
+        priorityColor = AppColors.success;
+        priorityIcon = Icons.check_circle;
+        break;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: priorityColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: priorityColor.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(priorityIcon, color: priorityColor, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  recommendation['title'],
+                  style: AppTextStyles.bodyLarge.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: priorityColor,
+                  ),
+                ),
+                Text(
+                  recommendation['description'],
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              // Handle recommendation action
+            },
+            child: Text(
+              recommendation['action'],
+              style: AppTextStyles.bodySmall.copyWith(
+                color: priorityColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -266,20 +660,46 @@ class _HomePageState extends State<HomePage> {
         Row(
           children: [
             Expanded(
-              child: _buildActionCard(
-                'Take Full Test',
-                '100 Questions • 2 Hours',
-                Icons.quiz,
-                () => context.go('/test/polity_full_test'),
+              child: _buildQuickActionCard(
+                'Continue Test',
+                'Resume your last test',
+                Icons.play_arrow,
+                AppColors.primary,
+                () => context.go('/test/polity_test_3'),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
-              child: _buildActionCard(
-                'Mains Practice',
-                'Descriptive Questions',
-                Icons.edit_note,
-                () => context.go('/mains'),
+              child: _buildQuickActionCard(
+                'Practice',
+                'Quick practice session',
+                Icons.psychology,
+                AppColors.info,
+                () => context.go('/subject/polity'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildQuickActionCard(
+                'Review',
+                'Review your progress',
+                Icons.analytics,
+                AppColors.success,
+                () => context.go('/analytics'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildQuickActionCard(
+                'Tests',
+                'Take real exams',
+                Icons.quiz,
+                AppColors.warning,
+                () => context.go('/tests'),
               ),
             ),
           ],
@@ -288,33 +708,29 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildActionCard(String title, String subtitle, IconData icon, VoidCallback onTap) {
+  Widget _buildQuickActionCard(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.cardBackground,
+          color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          border: Border.all(
+            color: color.withOpacity(0.3),
+            width: 1,
+          ),
         ),
         child: Column(
           children: [
-            Icon(icon, color: AppColors.primary, size: 32),
+            Icon(icon, color: color, size: 24),
             const SizedBox(height: 8),
             Text(
               title,
-              style: AppTextStyles.bodyLarge.copyWith(
+              style: AppTextStyles.bodyMedium.copyWith(
                 fontWeight: FontWeight.w600,
+                color: color,
               ),
-              textAlign: TextAlign.center,
             ),
             Text(
               subtitle,
@@ -325,272 +741,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildChapterProgress() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Chapter Progress',
-              style: AppTextStyles.headlineSmall.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            TextButton(
-              onPressed: () => context.go('/subject/polity'),
-              child: const Text('View All'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _polityChapters.take(3).length,
-          itemBuilder: (context, index) {
-            final chapter = _polityChapters[index];
-            return _buildChapterItem(chapter);
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildChapterItem(ChapterModel chapter) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: chapter.isCompleted ? AppColors.success : AppColors.lightGrey,
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: chapter.isCompleted ? AppColors.success : AppColors.primary,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Text(
-                '${chapter.order}',
-                style: AppTextStyles.bodyLarge.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  chapter.title,
-                  style: AppTextStyles.bodyLarge.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  chapter.description,
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (chapter.isCompleted)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Icon(Icons.check_circle, color: AppColors.success),
-                Text(
-                  '${chapter.accuracy?.toInt()}%',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.success,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            )
-          else
-            const Icon(Icons.play_circle_outline, color: AppColors.primary),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOtherSubjects() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Coming Soon',
-          style: AppTextStyles.headlineSmall.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildSubjectCard(_subjects[1]), // Geography
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildSubjectCard(_subjects[2]), // Economy
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSubjectsGrid() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1.2,
-      ),
-      itemCount: _subjects.length,
-      itemBuilder: (context, index) {
-        final subject = _subjects[index];
-        return _buildSubjectCard(subject);
-      },
-    );
-  }
-
-  Widget _buildSubjectCard(SubjectModel subject) {
-    return GestureDetector(
-      onTap: subject.isAvailable
-          ? () => context.go('/subject/${subject.id}')
-          : null,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: subject.isAvailable ? AppColors.cardBackground : AppColors.disabled,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: subject.isAvailable ? AppColors.primary : AppColors.disabled,
-            width: 2,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              subject.icon,
-              style: const TextStyle(fontSize: 32),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subject.name,
-              style: AppTextStyles.bodyLarge.copyWith(
-                fontWeight: FontWeight.bold,
-                color: subject.isAvailable ? AppColors.textPrimary : AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subject.isAvailable
-                  ? '${subject.totalTests} Tests'
-                  : 'Coming Soon',
-              style: AppTextStyles.bodySmall.copyWith(
-                color: subject.isAvailable ? AppColors.primary : AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContinueLastTest() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.psychology, color: AppColors.primary, size: 24),
-              const SizedBox(width: 8),
-              Text(
-                'Continue Last Test',
-                style: AppTextStyles.bodyLarge.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Polity - Test 3',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.primary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExploreTests() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.search, color: AppColors.primary, size: 24),
-              const SizedBox(width: 8),
-              Text(
-                'Explore Tests',
-                style: AppTextStyles.bodyLarge.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Browse all available tests',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
       ),
     );
   }

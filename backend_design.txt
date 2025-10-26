@@ -1,0 +1,848 @@
+# 🚀 IAS Test Series - Backend Design (FastAPI + Supabase)
+
+## 📋 Table of Contents
+1. [Architecture Overview](#architecture-overview)
+2. [Technology Stack](#technology-stack)
+3. [Project Structure](#project-structure)
+4. [API Design](#api-design)
+5. [Authentication & Security](#authentication--security)
+6. [Database Integration](#database-integration)
+7. [Real-time Features](#real-time-features)
+8. [Performance & Scalability](#performance--scalability)
+9. [Testing Strategy](#testing-strategy)
+10. [Deployment & DevOps](#deployment--devops)
+11. [Monitoring & Logging](#monitoring--logging)
+12. [Long-term Recommendations](#long-term-recommendations)
+
+---
+
+## 🏗️ Architecture Overview
+
+### **System Architecture:**
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Flutter App   │◄──►│   FastAPI       │◄──►│   Supabase      │
+│   (Frontend)    │    │   (Backend)     │    │   (Database)    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                              │
+                              ▼
+                       ┌─────────────────┐
+                       │   Redis Cache   │
+                       │   (Sessions)    │
+                       └─────────────────┘
+```
+
+### **Key Design Principles:**
+- **Microservices Ready**: Modular design for future scaling
+- **API-First**: RESTful APIs with OpenAPI documentation
+- **Event-Driven**: Real-time updates using WebSockets
+- **Caching Strategy**: Redis for performance optimization
+- **Security First**: JWT tokens, rate limiting, input validation
+
+---
+
+## 🛠️ Technology Stack
+
+### **Core Framework:**
+- **FastAPI**: Modern, fast web framework for building APIs
+- **Python 3.11+**: Latest Python features and performance
+- **Pydantic**: Data validation and serialization
+- **SQLAlchemy**: ORM for database operations
+- **Alembic**: Database migrations
+
+### **Authentication & Security:**
+- **Supabase Auth**: User authentication and JWT tokens
+- **python-jose**: JWT token handling
+- **passlib**: Password hashing utilities
+- **python-multipart**: File upload handling
+
+### **Database & Caching:**
+- **Supabase**: PostgreSQL database with real-time features
+- **Redis**: Caching and session storage
+- **psycopg2**: PostgreSQL adapter
+
+### **Additional Libraries:**
+- **celery**: Background task processing
+- **uvicorn**: ASGI server
+- **gunicorn**: Production WSGI server
+- **pytest**: Testing framework
+- **black**: Code formatting
+- **isort**: Import sorting
+- **mypy**: Type checking
+
+---
+
+## 📁 Project Structure
+
+```
+backend/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                     # FastAPI application entry point
+│   ├── config.py                   # Configuration management
+│   ├── database.py                 # Database connection setup
+│   ├── dependencies.py             # Dependency injection
+│   │
+│   ├── core/                       # Core functionality
+│   │   ├── __init__.py
+│   │   ├── auth.py                 # Authentication utilities
+│   │   ├── security.py             # Security helpers
+│   │   ├── exceptions.py           # Custom exceptions
+│   │   ├── middleware.py           # Custom middleware
+│   │   └── utils.py                # Utility functions
+│   │
+│   ├── models/                     # Database models
+│   │   ├── __init__.py
+│   │   ├── base.py                 # Base model class
+│   │   ├── user.py                 # User models
+│   │   ├── subject.py              # Subject models
+│   │   ├── test.py                 # Test models
+│   │   ├── question.py             # Question models
+│   │   ├── exam.py                 # Exam models
+│   │   └── analytics.py            # Analytics models
+│   │
+│   ├── schemas/                    # Pydantic schemas
+│   │   ├── __init__.py
+│   │   ├── user.py                 # User schemas
+│   │   ├── subject.py              # Subject schemas
+│   │   ├── test.py                 # Test schemas
+│   │   ├── question.py             # Question schemas
+│   │   ├── exam.py                 # Exam schemas
+│   │   ├── analytics.py            # Analytics schemas
+│   │   └── common.py               # Common schemas
+│   │
+│   ├── api/                        # API routes
+│   │   ├── __init__.py
+│   │   ├── deps.py                 # API dependencies
+│   │   ├── v1/                     # API version 1
+│   │   │   ├── __init__.py
+│   │   │   ├── auth.py             # Authentication endpoints
+│   │   │   ├── users.py            # User management
+│   │   │   ├── subjects.py         # Subject endpoints
+│   │   │   ├── tests.py            # Test endpoints
+│   │   │   ├── questions.py        # Question endpoints
+│   │   │   ├── exams.py            # Exam endpoints
+│   │   │   ├── analytics.py        # Analytics endpoints
+│   │   │   └── websocket.py        # WebSocket endpoints
+│   │   └── v2/                     # Future API version
+│   │
+│   ├── services/                   # Business logic
+│   │   ├── __init__.py
+│   │   ├── auth_service.py         # Authentication service
+│   │   ├── user_service.py         # User management service
+│   │   ├── subject_service.py      # Subject service
+│   │   ├── test_service.py         # Test service
+│   │   ├── question_service.py     # Question service
+│   │   ├── exam_service.py         # Exam service
+│   │   ├── analytics_service.py    # Analytics service
+│   │   ├── cache_service.py        # Caching service
+│   │   └── notification_service.py # Notification service
+│   │
+│   ├── repositories/               # Data access layer
+│   │   ├── __init__.py
+│   │   ├── base.py                 # Base repository
+│   │   ├── user_repository.py      # User data access
+│   │   ├── subject_repository.py   # Subject data access
+│   │   ├── test_repository.py      # Test data access
+│   │   ├── question_repository.py  # Question data access
+│   │   ├── exam_repository.py      # Exam data access
+│   │   └── analytics_repository.py # Analytics data access
+│   │
+│   └── workers/                    # Background tasks
+│       ├── __init__.py
+│       ├── celery_app.py           # Celery configuration
+│       ├── tasks.py                # Background tasks
+│       └── email_tasks.py          # Email tasks
+│
+├── tests/                          # Test files
+│   ├── __init__.py
+│   ├── conftest.py                 # Test configuration
+│   ├── test_auth.py                # Authentication tests
+│   ├── test_users.py               # User tests
+│   ├── test_subjects.py            # Subject tests
+│   ├── test_tests.py               # Test tests
+│   └── test_analytics.py           # Analytics tests
+│
+├── migrations/                     # Database migrations
+│   └── versions/
+│
+├── scripts/                        # Utility scripts
+│   ├── init_db.py                  # Database initialization
+│   ├── seed_data.py                # Seed data script
+│   └── backup.py                   # Backup script
+│
+├── docs/                           # Documentation
+│   ├── api.md                      # API documentation
+│   ├── deployment.md               # Deployment guide
+│   └── development.md              # Development guide
+│
+├── docker/                         # Docker files
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   └── docker-compose.prod.yml
+│
+├── .env.example                    # Environment variables example
+├── .gitignore
+├── requirements.txt                # Python dependencies
+├── requirements-dev.txt            # Development dependencies
+├── pyproject.toml                  # Project configuration
+├── README.md
+└── docker-compose.yml              # Development environment
+```
+
+---
+
+## 🔌 API Design
+
+### **RESTful API Structure:**
+
+#### **Base URL:** `https://api.iastestseries.com/v1`
+
+#### **Authentication Endpoints:**
+```python
+# POST /auth/register
+# POST /auth/login
+# POST /auth/logout
+# POST /auth/refresh
+# POST /auth/forgot-password
+# POST /auth/reset-password
+# GET /auth/me
+# PUT /auth/me
+```
+
+#### **User Management:**
+```python
+# GET /users/profile
+# PUT /users/profile
+# GET /users/progress
+# GET /users/analytics
+# GET /users/attempts
+# DELETE /users/account
+```
+
+#### **Subject Management:**
+```python
+# GET /subjects
+# GET /subjects/{subject_id}
+# GET /subjects/{subject_id}/chapters
+# GET /subjects/{subject_id}/progress
+# GET /subjects/{subject_id}/analytics
+```
+
+#### **Test System:**
+```python
+# GET /tests
+# GET /tests/{test_id}
+# POST /tests/{test_id}/start
+# POST /tests/{test_id}/submit
+# GET /tests/{test_id}/results
+# GET /tests/{test_id}/questions
+# POST /tests/{test_id}/responses
+```
+
+#### **Exam System:**
+```python
+# GET /exams
+# GET /exams/{exam_id}
+# GET /exams/{exam_id}/papers
+# POST /exams/{exam_id}/papers/{paper_id}/start
+# POST /exams/{exam_id}/papers/{paper_id}/submit
+# GET /exams/{exam_id}/results
+```
+
+#### **Analytics:**
+```python
+# GET /analytics/overview
+# GET /analytics/subject/{subject_id}
+# GET /analytics/test/{test_id}
+# GET /analytics/performance
+# GET /analytics/recommendations
+# GET /analytics/leaderboard
+```
+
+### **WebSocket Endpoints:**
+```python
+# WS /ws/exam/{exam_id}          # Real-time exam monitoring
+# WS /ws/test/{test_id}          # Real-time test updates
+# WS /ws/notifications           # User notifications
+```
+
+---
+
+## 🔐 Authentication & Security
+
+### **Supabase Auth Integration:**
+
+#### **JWT Token Handling:**
+```python
+# app/core/auth.py
+from supabase import create_client, Client
+from jose import JWTError, jwt
+from datetime import datetime, timedelta
+
+class SupabaseAuth:
+    def __init__(self):
+        self.supabase: Client = create_client(
+            settings.SUPABASE_URL,
+            settings.SUPABASE_ANON_KEY
+        )
+    
+    async def verify_token(self, token: str) -> dict:
+        """Verify JWT token from Supabase"""
+        try:
+            payload = jwt.decode(
+                token, 
+                settings.SUPABASE_JWT_SECRET,
+                algorithms=["HS256"]
+            )
+            return payload
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    
+    async def get_current_user(self, token: str) -> dict:
+        """Get current user from token"""
+        payload = await self.verify_token(token)
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return await self.get_user_by_id(user_id)
+```
+
+#### **Security Middleware:**
+```python
+# app/core/middleware.py
+from fastapi import Request, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+security = HTTPBearer()
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> dict:
+    """Dependency to get current user"""
+    token = credentials.credentials
+    auth_service = SupabaseAuth()
+    return await auth_service.get_current_user(token)
+```
+
+### **Rate Limiting:**
+```python
+# app/core/middleware.py
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Apply rate limiting
+@limiter.limit("10/minute")
+async def login_endpoint(request: Request, ...):
+    pass
+```
+
+---
+
+## 🗄️ Database Integration
+
+### **Supabase Client Setup:**
+```python
+# app/database.py
+from supabase import create_client, Client
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+# Supabase client
+supabase: Client = create_client(
+    settings.SUPABASE_URL,
+    settings.SUPABASE_SERVICE_KEY  # Service key for admin operations
+)
+
+# SQLAlchemy setup for complex queries
+engine = create_engine(settings.DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+def get_db():
+    """Database dependency"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```
+
+### **Repository Pattern:**
+```python
+# app/repositories/base.py
+from typing import Generic, TypeVar, Type, Optional, List
+from sqlalchemy.orm import Session
+from app.models.base import Base
+
+ModelType = TypeVar("ModelType", bound=Base)
+
+class BaseRepository(Generic[ModelType]):
+    def __init__(self, model: Type[ModelType], db: Session):
+        self.model = model
+        self.db = db
+    
+    def get(self, id: str) -> Optional[ModelType]:
+        return self.db.query(self.model).filter(self.model.id == id).first()
+    
+    def get_multi(self, skip: int = 0, limit: int = 100) -> List[ModelType]:
+        return self.db.query(self.model).offset(skip).limit(limit).all()
+    
+    def create(self, obj_in: dict) -> ModelType:
+        db_obj = self.model(**obj_in)
+        self.db.add(db_obj)
+        self.db.commit()
+        self.db.refresh(db_obj)
+        return db_obj
+```
+
+---
+
+## ⚡ Real-time Features
+
+### **WebSocket Implementation:**
+```python
+# app/api/v1/websocket.py
+from fastapi import WebSocket, WebSocketDisconnect
+from typing import List, Dict
+import json
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+        self.exam_connections: Dict[str, List[WebSocket]] = {}
+    
+    async def connect(self, websocket: WebSocket, exam_id: str = None):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        if exam_id:
+            if exam_id not in self.exam_connections:
+                self.exam_connections[exam_id] = []
+            self.exam_connections[exam_id].append(websocket)
+    
+    def disconnect(self, websocket: WebSocket, exam_id: str = None):
+        self.active_connections.remove(websocket)
+        if exam_id and exam_id in self.exam_connections:
+            self.exam_connections[exam_id].remove(websocket)
+    
+    async def send_personal_message(self, message: str, websocket: WebSocket):
+        await websocket.send_text(message)
+    
+    async def broadcast_to_exam(self, message: str, exam_id: str):
+        if exam_id in self.exam_connections:
+            for connection in self.exam_connections[exam_id]:
+                await connection.send_text(message)
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/exam/{exam_id}")
+async def websocket_endpoint(websocket: WebSocket, exam_id: str):
+    await manager.connect(websocket, exam_id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            # Process real-time exam data
+            await manager.broadcast_to_exam(data, exam_id)
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, exam_id)
+```
+
+---
+
+## 🚀 Performance & Scalability
+
+### **Caching Strategy:**
+```python
+# app/services/cache_service.py
+import redis
+from typing import Optional, Any
+import json
+
+class CacheService:
+    def __init__(self):
+        self.redis_client = redis.Redis(
+            host=settings.REDIS_HOST,
+            port=settings.REDIS_PORT,
+            db=0,
+            decode_responses=True
+        )
+    
+    async def get(self, key: str) -> Optional[Any]:
+        """Get value from cache"""
+        value = self.redis_client.get(key)
+        return json.loads(value) if value else None
+    
+    async def set(self, key: str, value: Any, expire: int = 3600):
+        """Set value in cache with expiration"""
+        self.redis_client.setex(key, expire, json.dumps(value))
+    
+    async def delete(self, key: str):
+        """Delete key from cache"""
+        self.redis_client.delete(key)
+```
+
+### **Background Tasks:**
+```python
+# app/workers/tasks.py
+from celery import Celery
+from app.services.email_service import EmailService
+
+celery_app = Celery("ias_backend")
+
+@celery_app.task
+def send_welcome_email(user_email: str, user_name: str):
+    """Send welcome email to new user"""
+    email_service = EmailService()
+    email_service.send_welcome_email(user_email, user_name)
+
+@celery_app.task
+def calculate_user_analytics(user_id: str):
+    """Calculate user analytics in background"""
+    analytics_service = AnalyticsService()
+    analytics_service.calculate_user_metrics(user_id)
+```
+
+---
+
+## 🧪 Testing Strategy
+
+### **Test Structure:**
+```python
+# tests/conftest.py
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.main import app
+from app.database import get_db, Base
+
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+@pytest.fixture
+def db():
+    Base.metadata.create_all(bind=engine)
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        Base.metadata.drop_all(bind=engine)
+
+@pytest.fixture
+def client(db):
+    def override_get_db():
+        try:
+            yield db
+        finally:
+            db.close()
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as test_client:
+        yield test_client
+```
+
+### **Test Examples:**
+```python
+# tests/test_auth.py
+def test_user_registration(client):
+    response = client.post("/auth/register", json={
+        "email": "test@example.com",
+        "password": "testpassword",
+        "name": "Test User"
+    })
+    assert response.status_code == 201
+    assert "user_id" in response.json()
+
+def test_user_login(client):
+    # First register user
+    client.post("/auth/register", json={
+        "email": "test@example.com",
+        "password": "testpassword",
+        "name": "Test User"
+    })
+    
+    # Then login
+    response = client.post("/auth/login", json={
+        "email": "test@example.com",
+        "password": "testpassword"
+    })
+    assert response.status_code == 200
+    assert "access_token" in response.json()
+```
+
+---
+
+## 🚀 Deployment & DevOps
+
+### **Docker Configuration:**
+```dockerfile
+# Dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application
+COPY . .
+
+# Expose port
+EXPOSE 8000
+
+# Run application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### **Docker Compose:**
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/ias_db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=ias_db
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  worker:
+    build: .
+    command: celery -A app.workers.celery_app worker --loglevel=info
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  postgres_data:
+```
+
+### **Production Deployment:**
+```yaml
+# docker-compose.prod.yml
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - api
+```
+
+---
+
+## 📊 Monitoring & Logging
+
+### **Logging Configuration:**
+```python
+# app/config.py
+import logging
+from pythonjsonlogger import jsonlogger
+
+def setup_logging():
+    """Setup structured logging"""
+    logHandler = logging.StreamHandler()
+    formatter = jsonlogger.JsonFormatter()
+    logHandler.setFormatter(formatter)
+    logger = logging.getLogger()
+    logger.addHandler(logHandler)
+    logger.setLevel(logging.INFO)
+    return logger
+```
+
+### **Health Checks:**
+```python
+# app/api/v1/health.py
+from fastapi import APIRouter, Depends
+from app.database import get_db
+from sqlalchemy.orm import Session
+
+router = APIRouter()
+
+@router.get("/health")
+async def health_check():
+    """Basic health check"""
+    return {"status": "healthy", "timestamp": datetime.utcnow()}
+
+@router.get("/health/db")
+async def database_health_check(db: Session = Depends(get_db)):
+    """Database health check"""
+    try:
+        db.execute("SELECT 1")
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
+```
+
+---
+
+## 🎯 Long-term Recommendations
+
+### **1. Microservices Architecture (Future)**
+```
+Current Monolith → Microservices
+├── User Service (Authentication, Profiles)
+├── Content Service (Subjects, Questions, Tests)
+├── Exam Service (Real-time Exams)
+├── Analytics Service (Performance, Insights)
+├── Notification Service (Emails, Push)
+└── API Gateway (Routing, Rate Limiting)
+```
+
+### **2. Advanced Features**
+- **AI Integration**: Question difficulty analysis, personalized recommendations
+- **Video Streaming**: Live classes and recorded lectures
+- **Mobile Push Notifications**: Firebase Cloud Messaging
+- **Advanced Analytics**: Machine learning insights
+- **Multi-tenancy**: Support for multiple institutions
+
+### **3. Performance Optimizations**
+- **CDN Integration**: CloudFlare for static assets
+- **Database Sharding**: Horizontal scaling
+- **Caching Layers**: Redis Cluster, Memcached
+- **Load Balancing**: Nginx, HAProxy
+- **Auto-scaling**: Kubernetes, Docker Swarm
+
+### **4. Security Enhancements**
+- **API Gateway**: Kong, AWS API Gateway
+- **WAF**: Web Application Firewall
+- **DDoS Protection**: CloudFlare, AWS Shield
+- **Security Scanning**: OWASP ZAP, Snyk
+- **Compliance**: GDPR, SOC 2
+
+### **5. Development Tools**
+- **CI/CD Pipeline**: GitHub Actions, GitLab CI
+- **Code Quality**: SonarQube, CodeClimate
+- **Documentation**: Swagger/OpenAPI, MkDocs
+- **Monitoring**: Prometheus, Grafana, ELK Stack
+- **Error Tracking**: Sentry, Rollbar
+
+### **6. Database Scaling**
+- **Read Replicas**: Multiple read-only databases
+- **Partitioning**: Time-based, user-based partitioning
+- **Data Archiving**: Move old data to cold storage
+- **Backup Strategy**: Automated backups, point-in-time recovery
+
+---
+
+## 📋 Development Workflow
+
+### **1. Local Development Setup:**
+```bash
+# Clone repository
+git clone <repository-url>
+cd backend
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements-dev.txt
+
+# Setup environment variables
+cp .env.example .env
+# Edit .env with your configuration
+
+# Run database migrations
+alembic upgrade head
+
+# Start development server
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### **2. Code Quality:**
+```bash
+# Format code
+black app/
+isort app/
+
+# Type checking
+mypy app/
+
+# Run tests
+pytest tests/ -v
+
+# Run linting
+flake8 app/
+```
+
+### **3. Database Management:**
+```bash
+# Create migration
+alembic revision --autogenerate -m "Add new table"
+
+# Apply migrations
+alembic upgrade head
+
+# Rollback migration
+alembic downgrade -1
+```
+
+---
+
+## 🎯 Next Steps
+
+1. **Setup Project Structure**: Create the folder structure and basic files
+2. **Configure Supabase**: Set up Supabase project and get credentials
+3. **Implement Authentication**: Integrate Supabase Auth
+4. **Create Core APIs**: Start with user and subject endpoints
+5. **Add Database Models**: Implement SQLAlchemy models
+6. **Setup Testing**: Configure pytest and write initial tests
+7. **Deploy to Staging**: Set up staging environment
+8. **Performance Testing**: Load testing and optimization
+9. **Production Deployment**: Deploy to production with monitoring
+10. **Continuous Integration**: Set up CI/CD pipeline
+
+---
+
+*This backend design provides a solid foundation for the IAS Test Series application with room for future growth and scaling.*

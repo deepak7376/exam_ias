@@ -1,0 +1,954 @@
+# 🔗 Flutter-Backend Integration Guide
+
+## 📋 Table of Contents
+1. [Overview](#overview)
+2. [Current Dummy Data Usage](#current-dummy-data-usage)
+3. [Backend Integration Points](#backend-integration-points)
+4. [API Service Layer](#api-service-layer)
+5. [Data Model Updates](#data-model-updates)
+6. [Service Layer Changes](#service-layer-changes)
+7. [UI Layer Updates](#ui-layer-updates)
+8. [Authentication Integration](#authentication-integration)
+9. [Real-time Features](#real-time-features)
+10. [Error Handling](#error-handling)
+11. [Migration Checklist](#migration-checklist)
+
+---
+
+## 🎯 Overview
+
+This document maps your current Flutter app's dummy data usage to the actual backend API calls. It shows exactly which files and methods need to be updated when you switch from mock data to real backend integration.
+
+### **Current State:**
+- ✅ Flutter app with complete UI
+- ✅ Dummy data services (MockDataService, PolityContentService, ExamService)
+- ✅ Working navigation and state management
+- ❌ No backend integration (all data is hardcoded)
+
+### **Target State:**
+- ✅ Real backend API calls
+- ✅ Supabase authentication
+- ✅ Real-time updates
+- ✅ Persistent data storage
+
+---
+
+## 📊 Current Dummy Data Usage
+
+### **Files Using Dummy Data:**
+
+#### **1. Mock Data Services:**
+```
+lib/data/services/
+├── mock_data_service.dart          # Main dummy data provider
+├── polity_content_service.dart     # Polity-specific dummy data
+├── exam_service.dart               # Exam dummy data
+└── subject_content_service.dart    # Multi-subject dummy data
+```
+
+#### **2. Data Models:**
+```
+lib/data/models/
+├── user_model.dart                 # User data structure
+├── subject_model.dart              # Subject data structure
+├── test_model.dart                 # Test data structure
+├── question_model.dart             # Question data structure
+├── chapter_model.dart              # Chapter data structure
+├── exam_model.dart                 # Exam data structure
+└── exam_paper_model.dart           # Exam paper data structure
+```
+
+#### **3. UI Pages Using Dummy Data:**
+```
+lib/presentation/pages/
+├── home/home_page.dart             # Uses SubjectContentService
+├── subject/subject_page.dart       # Uses PolityContentService
+├── tests/tests_page.dart           # Uses ExamService
+├── exam_detail/exam_detail_page.dart # Uses ExamService
+├── test/test_page.dart             # Uses TestModel
+├── result/result_page.dart         # Uses TestModel
+└── analytics/analytics_page.dart   # Uses MockDataService
+```
+
+---
+
+## 🔌 Backend Integration Points
+
+### **API Endpoints Mapping:**
+
+| Current Dummy Service | Backend API Endpoint | HTTP Method |
+|----------------------|---------------------|-------------|
+| `MockDataService.getCurrentUser()` | `/auth/me` | GET |
+| `MockDataService.getSubjects()` | `/subjects` | GET |
+| `PolityContentService.getPolityChapters()` | `/subjects/polity/chapters` | GET |
+| `PolityContentService.getChapterTests()` | `/subjects/polity/tests` | GET |
+| `ExamService.getAllExams()` | `/exams` | GET |
+| `ExamService.getExamPapers()` | `/exams/{id}/papers` | GET |
+| `SubjectContentService.getSubjectProgress()` | `/users/progress` | GET |
+
+---
+
+## 🛠️ API Service Layer
+
+### **1. Create API Service Base Class:**
+
+```dart
+// lib/data/services/api_service.dart
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class ApiService {
+  static const String baseUrl = 'https://api.iastestseries.com/v1';
+  static const Duration timeout = Duration(seconds: 30);
+  
+  final SupabaseClient _supabase = Supabase.instance.client;
+  
+  // Get authentication headers
+  Map<String, String> get _headers {
+    final token = _supabase.auth.currentSession?.accessToken;
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
+  
+  // Generic GET request
+  Future<Map<String, dynamic>> get(String endpoint) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: _headers,
+      ).timeout(timeout);
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw ApiException('GET $endpoint failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw ApiException('Network error: $e');
+    }
+  }
+  
+  // Generic POST request
+  Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> data) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: _headers,
+        body: json.encode(data),
+      ).timeout(timeout);
+      
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return json.decode(response.body);
+      } else {
+        throw ApiException('POST $endpoint failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw ApiException('Network error: $e');
+    }
+  }
+  
+  // Generic PUT request
+  Future<Map<String, dynamic>> put(String endpoint, Map<String, dynamic> data) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: _headers,
+        body: json.encode(data),
+      ).timeout(timeout);
+      
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return json.decode(response.body);
+      } else {
+        throw ApiException('PUT $endpoint failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw ApiException('Network error: $e');
+    }
+  }
+}
+
+class ApiException implements Exception {
+  final String message;
+  ApiException(this.message);
+  
+  @override
+  String toString() => 'ApiException: $message';
+}
+```
+
+### **2. Create Specific API Services:**
+
+```dart
+// lib/data/services/user_api_service.dart
+import 'api_service.dart';
+
+class UserApiService extends ApiService {
+  // Get current user profile
+  Future<Map<String, dynamic>> getCurrentUser() async {
+    return await get('/auth/me');
+  }
+  
+  // Update user profile
+  Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> data) async {
+    return await put('/users/profile', data);
+  }
+  
+  // Get user progress
+  Future<Map<String, dynamic>> getUserProgress() async {
+    return await get('/users/progress');
+  }
+  
+  // Get user analytics
+  Future<Map<String, dynamic>> getUserAnalytics() async {
+    return await get('/users/analytics');
+  }
+}
+```
+
+```dart
+// lib/data/services/subject_api_service.dart
+import 'api_service.dart';
+
+class SubjectApiService extends ApiService {
+  // Get all subjects
+  Future<List<Map<String, dynamic>>> getSubjects() async {
+    final response = await get('/subjects');
+    return List<Map<String, dynamic>>.from(response['data']);
+  }
+  
+  // Get subject details
+  Future<Map<String, dynamic>> getSubject(String subjectId) async {
+    return await get('/subjects/$subjectId');
+  }
+  
+  // Get subject chapters
+  Future<List<Map<String, dynamic>>> getSubjectChapters(String subjectId) async {
+    final response = await get('/subjects/$subjectId/chapters');
+    return List<Map<String, dynamic>>.from(response['data']);
+  }
+  
+  // Get subject progress
+  Future<Map<String, dynamic>> getSubjectProgress(String subjectId) async {
+    return await get('/subjects/$subjectId/progress');
+  }
+}
+```
+
+```dart
+// lib/data/services/test_api_service.dart
+import 'api_service.dart';
+
+class TestApiService extends ApiService {
+  // Get tests for subject
+  Future<List<Map<String, dynamic>>> getTests(String subjectId) async {
+    final response = await get('/subjects/$subjectId/tests');
+    return List<Map<String, dynamic>>.from(response['data']);
+  }
+  
+  // Get test details
+  Future<Map<String, dynamic>> getTest(String testId) async {
+    return await get('/tests/$testId');
+  }
+  
+  // Start test
+  Future<Map<String, dynamic>> startTest(String testId) async {
+    return await post('/tests/$testId/start', {});
+  }
+  
+  // Submit test
+  Future<Map<String, dynamic>> submitTest(String testId, Map<String, dynamic> responses) async {
+    return await post('/tests/$testId/submit', responses);
+  }
+  
+  // Get test results
+  Future<Map<String, dynamic>> getTestResults(String testId) async {
+    return await get('/tests/$testId/results');
+  }
+}
+```
+
+```dart
+// lib/data/services/exam_api_service.dart
+import 'api_service.dart';
+
+class ExamApiService extends ApiService {
+  // Get all exams
+  Future<List<Map<String, dynamic>>> getExams() async {
+    final response = await get('/exams');
+    return List<Map<String, dynamic>>.from(response['data']);
+  }
+  
+  // Get exam details
+  Future<Map<String, dynamic>> getExam(String examId) async {
+    return await get('/exams/$examId');
+  }
+  
+  // Get exam papers
+  Future<List<Map<String, dynamic>>> getExamPapers(String examId) async {
+    final response = await get('/exams/$examId/papers');
+    return List<Map<String, dynamic>>.from(response['data']);
+  }
+  
+  // Start exam paper
+  Future<Map<String, dynamic>> startExamPaper(String examId, String paperId) async {
+    return await post('/exams/$examId/papers/$paperId/start', {});
+  }
+  
+  // Submit exam paper
+  Future<Map<String, dynamic>> submitExamPaper(String examId, String paperId, Map<String, dynamic> responses) async {
+    return await post('/exams/$examId/papers/$paperId/submit', responses);
+  }
+}
+```
+
+---
+
+## 📝 Data Model Updates
+
+### **1. Add fromJson Methods to Models:**
+
+```dart
+// lib/data/models/user_model.dart - ADD THESE METHODS
+class UserModel {
+  // ... existing code ...
+  
+  factory UserModel.fromJson(Map<String, dynamic> json) {
+    return UserModel(
+      id: json['id'],
+      name: json['name'],
+      email: json['email'],
+      phone: json['phone'],
+      avatarUrl: json['avatar_url'],
+      dateOfBirth: json['date_of_birth'] != null 
+          ? DateTime.parse(json['date_of_birth']) 
+          : null,
+      targetYear: json['target_year'],
+      preferredSubjects: List<String>.from(json['preferred_subjects'] ?? []),
+      studyGoals: json['study_goals'],
+      overallProgress: (json['overall_progress'] ?? 0.0).toDouble(),
+      createdAt: DateTime.parse(json['created_at']),
+      updatedAt: DateTime.parse(json['updated_at']),
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'phone': phone,
+      'avatar_url': avatarUrl,
+      'date_of_birth': dateOfBirth?.toIso8601String(),
+      'target_year': targetYear,
+      'preferred_subjects': preferredSubjects,
+      'study_goals': studyGoals,
+      'overall_progress': overallProgress,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+    };
+  }
+}
+```
+
+### **2. Update All Models Similarly:**
+
+```dart
+// lib/data/models/subject_model.dart - ADD fromJson/toJson
+// lib/data/models/test_model.dart - ADD fromJson/toJson
+// lib/data/models/question_model.dart - ADD fromJson/toJson
+// lib/data/models/chapter_model.dart - ADD fromJson/toJson
+// lib/data/models/exam_model.dart - ADD fromJson/toJson
+// lib/data/models/exam_paper_model.dart - ADD fromJson/toJson
+```
+
+---
+
+## 🔄 Service Layer Changes
+
+### **1. Update MockDataService to use APIs:**
+
+```dart
+// lib/data/services/mock_data_service.dart - REPLACE WITH REAL API CALLS
+class MockDataService {
+  final UserApiService _userApiService = UserApiService();
+  final SubjectApiService _subjectApiService = SubjectApiService();
+  
+  // OLD: Hardcoded data
+  // UserModel getCurrentUser() { return UserModel(...); }
+  
+  // NEW: API call
+  Future<UserModel> getCurrentUser() async {
+    try {
+      final data = await _userApiService.getCurrentUser();
+      return UserModel.fromJson(data);
+    } catch (e) {
+      // Fallback to dummy data or show error
+      return _getDummyUser();
+    }
+  }
+  
+  // OLD: Hardcoded data
+  // List<SubjectModel> getSubjects() { return [...]; }
+  
+  // NEW: API call
+  Future<List<SubjectModel>> getSubjects() async {
+    try {
+      final data = await _subjectApiService.getSubjects();
+      return data.map((json) => SubjectModel.fromJson(json)).toList();
+    } catch (e) {
+      // Fallback to dummy data
+      return _getDummySubjects();
+    }
+  }
+  
+  // Keep dummy methods as fallback
+  UserModel _getDummyUser() { /* existing dummy data */ }
+  List<SubjectModel> _getDummySubjects() { /* existing dummy data */ }
+}
+```
+
+### **2. Update PolityContentService:**
+
+```dart
+// lib/data/services/polity_content_service.dart - REPLACE WITH REAL API CALLS
+class PolityContentService {
+  final SubjectApiService _subjectApiService = SubjectApiService();
+  final TestApiService _testApiService = TestApiService();
+  
+  // OLD: Hardcoded data
+  // List<ChapterModel> getPolityChapters() { return [...]; }
+  
+  // NEW: API call
+  Future<List<ChapterModel>> getPolityChapters() async {
+    try {
+      final data = await _subjectApiService.getSubjectChapters('polity');
+      return data.map((json) => ChapterModel.fromJson(json)).toList();
+    } catch (e) {
+      return _getDummyPolityChapters();
+    }
+  }
+  
+  // OLD: Hardcoded data
+  // List<TestModel> getChapterTests() { return [...]; }
+  
+  // NEW: API call
+  Future<List<TestModel>> getChapterTests() async {
+    try {
+      final data = await _testApiService.getTests('polity');
+      return data.map((json) => TestModel.fromJson(json)).toList();
+    } catch (e) {
+      return _getDummyChapterTests();
+    }
+  }
+}
+```
+
+### **3. Update ExamService:**
+
+```dart
+// lib/data/services/exam_service.dart - REPLACE WITH REAL API CALLS
+class ExamService {
+  final ExamApiService _examApiService = ExamApiService();
+  
+  // OLD: Hardcoded data
+  // List<ExamModel> getAllExams() { return [...]; }
+  
+  // NEW: API call
+  Future<List<ExamModel>> getAllExams() async {
+    try {
+      final data = await _examApiService.getExams();
+      return data.map((json) => ExamModel.fromJson(json)).toList();
+    } catch (e) {
+      return _getDummyExams();
+    }
+  }
+  
+  // OLD: Hardcoded data
+  // List<ExamPaperModel> getExamPapers(String examId) { return [...]; }
+  
+  // NEW: API call
+  Future<List<ExamPaperModel>> getExamPapers(String examId) async {
+    try {
+      final data = await _examApiService.getExamPapers(examId);
+      return data.map((json) => ExamPaperModel.fromJson(json)).toList();
+    } catch (e) {
+      return _getDummyExamPapers(examId);
+    }
+  }
+}
+```
+
+---
+
+## 🎨 UI Layer Updates
+
+### **1. Update HomePage to use async data:**
+
+```dart
+// lib/presentation/pages/home/home_page.dart - UPDATE THESE METHODS
+class _HomePageState extends State<HomePage> {
+  // ... existing code ...
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadData(); // Make this async
+  }
+  
+  // OLD: Synchronous data loading
+  // void _loadData() { ... }
+  
+  // NEW: Async data loading
+  Future<void> _loadData() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      _user = await _mockDataService.getCurrentUser();
+      _subjects = await _subjectContentService.getAllSubjectsWithContent();
+      _overallProgress = await _subjectContentService.getOverallProgress();
+      _recommendations = await _subjectContentService.getSmartRecommendations();
+      
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = e.toString();
+      });
+    }
+  }
+  
+  // Add loading and error states
+  bool _isLoading = false;
+  String? _error;
+  
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    
+    if (_error != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Error: $_error'),
+              ElevatedButton(
+                onPressed: _loadData,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    // ... existing build method
+  }
+}
+```
+
+### **2. Update SubjectPage:**
+
+```dart
+// lib/presentation/pages/subject/subject_page.dart - UPDATE THESE METHODS
+class _SubjectPageState extends State<SubjectPage> {
+  // ... existing code ...
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadTests(); // Make this async
+  }
+  
+  // OLD: Synchronous data loading
+  // void _loadTests() { ... }
+  
+  // NEW: Async data loading
+  Future<void> _loadTests() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      if (widget.subjectId == 'polity') {
+        _tests = await _polityService.getChapterTests();
+        _tests.add(await _polityService.getFullLengthTest());
+        _chapters = await _polityService.getPolityChapters();
+      } else {
+        _tests = await _mockDataService.getTestsForSubject(widget.subjectId);
+        _chapters = [];
+      }
+      _subjectName = _getSubjectName(widget.subjectId);
+      
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = e.toString();
+      });
+    }
+  }
+}
+```
+
+### **3. Update TestsPage:**
+
+```dart
+// lib/presentation/pages/tests/tests_page.dart - UPDATE THESE METHODS
+class _TestsPageState extends State<TestsPage> {
+  // ... existing code ...
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadExams(); // Make this async
+  }
+  
+  // OLD: Synchronous data loading
+  // void _loadExams() { ... }
+  
+  // NEW: Async data loading
+  Future<void> _loadExams() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      _userProgress = await _examService.getUserProgress();
+      
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = e.toString();
+      });
+    }
+  }
+}
+```
+
+---
+
+## 🔐 Authentication Integration
+
+### **1. Add Supabase Dependencies:**
+
+```yaml
+# pubspec.yaml - ADD THESE DEPENDENCIES
+dependencies:
+  supabase_flutter: ^2.0.0
+  http: ^1.1.0
+  connectivity_plus: ^5.0.0
+```
+
+### **2. Initialize Supabase:**
+
+```dart
+// lib/main.dart - UPDATE THIS FILE
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  await Supabase.initialize(
+    url: 'YOUR_SUPABASE_URL',
+    anonKey: 'YOUR_SUPABASE_ANON_KEY',
+  );
+  
+  runApp(const IASApp());
+}
+```
+
+### **3. Create Authentication Service:**
+
+```dart
+// lib/data/services/auth_service.dart
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class AuthService {
+  final SupabaseClient _supabase = Supabase.instance.client;
+  
+  // Get current user
+  User? get currentUser => _supabase.auth.currentUser;
+  
+  // Check if user is logged in
+  bool get isLoggedIn => currentUser != null;
+  
+  // Sign up
+  Future<AuthResponse> signUp(String email, String password, String name) async {
+    return await _supabase.auth.signUp(
+      email: email,
+      password: password,
+      data: {'name': name},
+    );
+  }
+  
+  // Sign in
+  Future<AuthResponse> signIn(String email, String password) async {
+    return await _supabase.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
+  }
+  
+  // Sign out
+  Future<void> signOut() async {
+    await _supabase.auth.signOut();
+  }
+  
+  // Listen to auth state changes
+  Stream<AuthState> get authStateChanges => _supabase.auth.onAuthStateChange;
+}
+```
+
+### **4. Update App Router for Authentication:**
+
+```dart
+// lib/core/routes/app_router.dart - UPDATE THIS FILE
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class AppRouter {
+  static final GoRouter router = GoRouter(
+    initialLocation: _getInitialRoute(),
+    routes: [
+      // ... existing routes
+    ],
+  );
+  
+  static String _getInitialRoute() {
+    final user = Supabase.instance.client.auth.currentUser;
+    return user != null ? home : onboarding;
+  }
+}
+```
+
+---
+
+## ⚡ Real-time Features
+
+### **1. Add WebSocket Support:**
+
+```dart
+// lib/data/services/websocket_service.dart
+import 'package:web_socket_channel/web_socket_channel.dart';
+
+class WebSocketService {
+  WebSocketChannel? _channel;
+  
+  // Connect to exam WebSocket
+  void connectToExam(String examId) {
+    _channel = WebSocketChannel.connect(
+      Uri.parse('wss://api.iastestseries.com/ws/exam/$examId'),
+    );
+  }
+  
+  // Listen to real-time updates
+  Stream<dynamic> get examUpdates => _channel!.stream;
+  
+  // Send exam data
+  void sendExamData(Map<String, dynamic> data) {
+    _channel!.sink.add(json.encode(data));
+  }
+  
+  // Disconnect
+  void disconnect() {
+    _channel?.sink.close();
+  }
+}
+```
+
+### **2. Update TestPage for Real-time:**
+
+```dart
+// lib/presentation/pages/test/test_page.dart - ADD REAL-TIME SUPPORT
+class _TestPageState extends State<TestPage> {
+  final WebSocketService _websocketService = WebSocketService();
+  
+  @override
+  void initState() {
+    super.initState();
+    _connectWebSocket();
+  }
+  
+  void _connectWebSocket() {
+    _websocketService.connectToExam(widget.testId);
+    _websocketService.examUpdates.listen((data) {
+      // Handle real-time updates
+      _handleRealTimeUpdate(data);
+    });
+  }
+  
+  void _handleRealTimeUpdate(Map<String, dynamic> data) {
+    // Update UI based on real-time data
+    setState(() {
+      // Update test state
+    });
+  }
+  
+  @override
+  void dispose() {
+    _websocketService.disconnect();
+    super.dispose();
+  }
+}
+```
+
+---
+
+## 🚨 Error Handling
+
+### **1. Create Error Handling Service:**
+
+```dart
+// lib/core/error/error_handler.dart
+class ErrorHandler {
+  static void handleError(dynamic error, StackTrace stackTrace) {
+    if (error is ApiException) {
+      // Handle API errors
+      _showErrorDialog(error.message);
+    } else if (error is SocketException) {
+      // Handle network errors
+      _showErrorDialog('No internet connection');
+    } else {
+      // Handle other errors
+      _showErrorDialog('An unexpected error occurred');
+    }
+  }
+  
+  static void _showErrorDialog(String message) {
+    // Show error dialog
+  }
+}
+```
+
+### **2. Add Error Handling to Services:**
+
+```dart
+// lib/data/services/api_service.dart - ADD ERROR HANDLING
+class ApiService {
+  Future<Map<String, dynamic>> get(String endpoint) async {
+    try {
+      // ... existing code
+    } catch (e) {
+      ErrorHandler.handleError(e, StackTrace.current);
+      rethrow;
+    }
+  }
+}
+```
+
+---
+
+## ✅ Migration Checklist
+
+### **Phase 1: Setup (Week 1)**
+- [ ] Add Supabase dependencies to pubspec.yaml
+- [ ] Initialize Supabase in main.dart
+- [ ] Create API service base class
+- [ ] Create specific API services (User, Subject, Test, Exam)
+- [ ] Add fromJson/toJson methods to all models
+
+### **Phase 2: Authentication (Week 2)**
+- [ ] Create AuthService
+- [ ] Update app router for authentication
+- [ ] Add login/signup pages
+- [ ] Implement token management
+- [ ] Add authentication middleware
+
+### **Phase 3: Data Services (Week 3)**
+- [ ] Update MockDataService to use APIs
+- [ ] Update PolityContentService to use APIs
+- [ ] Update ExamService to use APIs
+- [ ] Update SubjectContentService to use APIs
+- [ ] Add error handling and fallbacks
+
+### **Phase 4: UI Updates (Week 4)**
+- [ ] Update HomePage to use async data
+- [ ] Update SubjectPage to use async data
+- [ ] Update TestsPage to use async data
+- [ ] Update ExamDetailPage to use async data
+- [ ] Add loading states and error handling
+
+### **Phase 5: Real-time Features (Week 5)**
+- [ ] Add WebSocket service
+- [ ] Update TestPage for real-time updates
+- [ ] Add real-time notifications
+- [ ] Implement live exam monitoring
+
+### **Phase 6: Testing & Optimization (Week 6)**
+- [ ] Add unit tests for API services
+- [ ] Add integration tests
+- [ ] Performance optimization
+- [ ] Error handling improvements
+- [ ] Documentation updates
+
+---
+
+## 🎯 Key Files to Modify
+
+### **High Priority (Must Change):**
+1. `lib/data/services/mock_data_service.dart` → Replace with API calls
+2. `lib/data/services/polity_content_service.dart` → Replace with API calls
+3. `lib/data/services/exam_service.dart` → Replace with API calls
+4. `lib/data/services/subject_content_service.dart` → Replace with API calls
+5. `lib/presentation/pages/home/home_page.dart` → Add async loading
+6. `lib/presentation/pages/subject/subject_page.dart` → Add async loading
+7. `lib/presentation/pages/tests/tests_page.dart` → Add async loading
+
+### **Medium Priority (Should Change):**
+1. All model files → Add fromJson/toJson methods
+2. `lib/main.dart` → Initialize Supabase
+3. `lib/core/routes/app_router.dart` → Add authentication
+4. `lib/presentation/pages/test/test_page.dart` → Add real-time support
+
+### **Low Priority (Nice to Have):**
+1. Add comprehensive error handling
+2. Add offline support
+3. Add caching layer
+4. Add analytics tracking
+
+---
+
+## 🚀 Quick Start Guide
+
+### **1. Immediate Changes (30 minutes):**
+```bash
+# Add dependencies
+flutter pub add supabase_flutter http connectivity_plus
+
+# Create API service files
+mkdir -p lib/data/services/api
+touch lib/data/services/api/{api_service,user_api_service,subject_api_service,test_api_service,exam_api_service}.dart
+```
+
+### **2. First API Integration (2 hours):**
+```dart
+// Replace MockDataService.getCurrentUser() with API call
+// Add error handling
+// Test with dummy backend
+```
+
+### **3. Full Migration (1-2 weeks):**
+- Follow the migration checklist
+- Test each phase thoroughly
+- Keep dummy data as fallback
+- Gradually replace all dummy services
+
+---
+
+*This guide provides a complete roadmap for migrating from dummy data to real backend integration while maintaining app functionality.*
