@@ -26,20 +26,34 @@ class TestModel {
   });
 
   factory TestModel.fromJson(Map<String, dynamic> json) {
+    // Handle both frontend format and backend API format (snake_case)
+    final statusStr = json['status'] ?? 'pending';
+    TestStatus status;
+    
+    // Map backend status to TestStatus enum
+    switch (statusStr.toString().toLowerCase()) {
+      case 'completed':
+        status = TestStatus.completed;
+        break;
+      case 'retry':
+      case 'in_progress':
+        status = TestStatus.retry;
+        break;
+      default:
+        status = TestStatus.pending;
+    }
+
     return TestModel(
-      id: json['id'],
-      subjectId: json['subjectId'],
-      title: json['title'],
-      description: json['description'],
-      duration: json['duration'],
-      totalQuestions: json['totalQuestions'],
-      status: TestStatus.values.firstWhere(
-        (e) => e.toString() == 'TestStatus.${json['status']}',
-        orElse: () => TestStatus.pending,
-      ),
-      score: json['score']?.toDouble(),
-      completedAt: json['completedAt'],
-      canRetake: json['canRetake'] ?? false,
+      id: json['id'] ?? '',
+      subjectId: json['subject_id'] ?? json['subjectId'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      duration: json['duration_minutes'] ?? json['duration'] ?? 60,
+      totalQuestions: json['total_questions'] ?? json['totalQuestions'] ?? 0,
+      status: status,
+      score: (json['marks_obtained'] ?? json['percentage'] ?? json['score'])?.toDouble(),
+      completedAt: json['submitted_at'] ?? json['completedAt'],
+      canRetake: json['canRetake'] ?? true,
     );
   }
 

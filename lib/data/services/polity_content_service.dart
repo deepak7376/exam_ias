@@ -2,14 +2,32 @@ import '../models/chapter_model.dart';
 import '../models/test_model.dart';
 import '../models/question_model.dart';
 import '../models/mains_question_model.dart';
+import 'api/subject_api_service.dart';
+import 'api/test_api_service.dart';
 
 class PolityContentService {
   static final PolityContentService _instance = PolityContentService._internal();
   factory PolityContentService() => _instance;
   PolityContentService._internal();
 
-  // Polity Chapters (10 comprehensive chapters)
-  List<ChapterModel> getPolityChapters() {
+  final SubjectApiService _subjectApiService = SubjectApiService();
+  final TestApiService _testApiService = TestApiService();
+
+  // Get Polity Chapters - tries API first, falls back to mock
+  Future<List<ChapterModel>> getPolityChapters() async {
+    try {
+      final chaptersData = await _subjectApiService.getSubjectChapters('polity');
+      return chaptersData
+          .map((json) => ChapterModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      // Fallback to mock data if API fails
+      return _getDummyPolityChapters();
+    }
+  }
+
+  // Mock chapters data (fallback)
+  List<ChapterModel> _getDummyPolityChapters() {
     return [
       ChapterModel(
         id: 'ch1',
@@ -106,23 +124,32 @@ class PolityContentService {
     ];
   }
 
-  // Chapter-wise Mini Tests
-  List<TestModel> getChapterTests() {
-    final chapters = getPolityChapters();
-    return chapters.map((chapter) {
-      return TestModel(
-        id: 'test_${chapter.id}',
-        subjectId: 'polity',
-        title: '${chapter.title} - Mini Test',
-        description: chapter.description,
-        duration: 30, // 30 minutes for mini tests
-        totalQuestions: chapter.totalQuestions,
-        status: chapter.isCompleted ? TestStatus.completed : TestStatus.pending,
-        score: chapter.accuracy,
-        completedAt: chapter.isCompleted ? '2025-01-15' : null,
-        canRetake: true,
-      );
-    }).toList();
+  // Get Chapter Tests - tries API first, falls back to mock
+  Future<List<TestModel>> getChapterTests() async {
+    try {
+      // Try to get tests for polity subject
+      final testsData = await _testApiService.getTests(subjectId: 'polity');
+      return testsData
+          .map((json) => TestModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      // Fallback: generate from chapters
+      final chapters = await getPolityChapters();
+      return chapters.map((chapter) {
+        return TestModel(
+          id: 'test_${chapter.id}',
+          subjectId: 'polity',
+          title: '${chapter.title} - Mini Test',
+          description: chapter.description ?? '',
+          duration: 30,
+          totalQuestions: chapter.totalQuestions,
+          status: chapter.isCompleted ? TestStatus.completed : TestStatus.pending,
+          score: chapter.accuracy,
+          completedAt: chapter.isCompleted ? '2025-01-15' : null,
+          canRetake: true,
+        );
+      }).toList();
+    }
   }
 
   // Full-length Polity Mock Test

@@ -14,18 +14,47 @@ class AnalyticsPage extends StatefulWidget {
 
 class _AnalyticsPageState extends State<AnalyticsPage> {
   final MockDataService _mockDataService = MockDataService();
-  late UserModel _user;
-  late List<SubjectModel> _subjects;
+  UserModel? _user;
+  List<SubjectModel> _subjects = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _user = _mockDataService.getCurrentUser();
-    _subjects = _mockDataService.getSubjects();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final user = await _mockDataService.getCurrentUser();
+      final subjects = await _mockDataService.getSubjects();
+      setState(() {
+        _user = user;
+        _subjects = subjects;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading || _user == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          title: const Text('📊 Your Analytics'),
+          elevation: 0,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -79,7 +108,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               Expanded(
                 child: _buildStatCard(
                   'Overall Progress',
-                  '${_user.overallProgress.toInt()}% ✅',
+                  '${_user!.overallProgress.toInt()}% ✅',
                   AppColors.primary,
                   Icons.trending_up,
                 ),
@@ -88,7 +117,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               Expanded(
                 child: _buildStatCard(
                   'Average Accuracy',
-                  '${_user.averageAccuracy.toInt()}%',
+                  '${_user!.averageAccuracy.toInt()}%',
                   AppColors.success,
                   Icons.gps_fixed,
                 ),
@@ -98,7 +127,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           const SizedBox(height: 16),
           _buildStatCard(
             'Time per Question',
-            '${_user.timePerQuestion.toStringAsFixed(1)} min',
+            '${_user!.timePerQuestion.toStringAsFixed(1)} min',
             AppColors.info,
             Icons.timer,
           ),

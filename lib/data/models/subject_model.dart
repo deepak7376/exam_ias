@@ -18,14 +18,15 @@ class SubjectModel {
   });
 
   factory SubjectModel.fromJson(Map<String, dynamic> json) {
+    // Handle both frontend format and backend API format
     return SubjectModel(
-      id: json['id'],
-      name: json['name'],
-      icon: json['icon'],
-      totalTests: json['totalTests'],
-      averageScore: json['averageScore'].toDouble(),
-      completedTests: json['completedTests'],
-      isAvailable: json['isAvailable'],
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      icon: json['icon'] ?? '📘',
+      totalTests: json['total_tests'] ?? json['totalTests'] ?? 0,
+      averageScore: (json['average_score'] ?? json['averageScore'] ?? 0.0).toDouble(),
+      completedTests: json['completed_tests'] ?? json['completedTests'] ?? 0,
+      isAvailable: json['is_available'] ?? json['isAvailable'] ?? false,
     );
   }
 

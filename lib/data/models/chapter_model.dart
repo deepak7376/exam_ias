@@ -20,15 +20,16 @@ class ChapterModel {
   });
 
   factory ChapterModel.fromJson(Map<String, dynamic> json) {
+    // Handle both frontend format and backend API format (snake_case)
     return ChapterModel(
-      id: json['id'],
-      subjectId: json['subjectId'],
-      title: json['title'],
-      description: json['description'],
-      order: json['order'],
-      totalQuestions: json['totalQuestions'],
-      isCompleted: json['isCompleted'],
-      accuracy: json['accuracy']?.toDouble(),
+      id: json['id'] ?? '',
+      subjectId: json['subject_id'] ?? json['subjectId'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      order: json['order_index'] ?? json['order'] ?? 0,
+      totalQuestions: json['total_questions'] ?? json['totalQuestions'] ?? 0,
+      isCompleted: json['is_completed'] ?? json['isCompleted'] ?? false,
+      accuracy: (json['accuracy'] ?? json['average_score'])?.toDouble(),
     );
   }
 

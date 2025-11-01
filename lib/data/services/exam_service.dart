@@ -1,13 +1,29 @@
 import '../models/exam_model.dart';
 import '../models/exam_paper_model.dart';
+import 'api/exam_api_service.dart';
 
 class ExamService {
   static final ExamService _instance = ExamService._internal();
   factory ExamService() => _instance;
   ExamService._internal();
 
-  // Get all 4 quarterly exams
-  List<ExamModel> getAllExams() {
+  final ExamApiService _examApiService = ExamApiService();
+
+  // Get all exams - tries API first, falls back to mock
+  Future<List<ExamModel>> getAllExams() async {
+    try {
+      final examsData = await _examApiService.getExams();
+      return examsData
+          .map((json) => ExamModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      // Fallback to mock data if API fails
+      return _getDummyExams();
+    }
+  }
+
+  // Mock exams data (fallback)
+  List<ExamModel> _getDummyExams() {
     final now = DateTime.now();
     
     return [
@@ -81,24 +97,27 @@ class ExamService {
   }
 
   // Get Prelims exams only
-  List<ExamModel> getPrelimsExams() {
-    return getAllExams().where((exam) => exam.hasPrelims).toList();
+  Future<List<ExamModel>> getPrelimsExams() async {
+    final exams = await getAllExams();
+    return exams.where((exam) => exam.hasPrelims).toList();
   }
 
   // Get Mains exams only
-  List<ExamModel> getMainsExams() {
-    return getAllExams().where((exam) => exam.hasMains).toList();
+  Future<List<ExamModel>> getMainsExams() async {
+    final exams = await getAllExams();
+    return exams.where((exam) => exam.hasMains).toList();
   }
 
   // Get available exams (not locked)
-  List<ExamModel> getAvailableExams() {
-    return getAllExams().where((exam) => exam.status == ExamStatus.available).toList();
+  Future<List<ExamModel>> getAvailableExams() async {
+    final exams = await getAllExams();
+    return exams.where((exam) => exam.status == ExamStatus.available).toList();
   }
 
   // Get next exam release date
-  DateTime? getNextExamReleaseDate() {
+  Future<DateTime?> getNextExamReleaseDate() async {
     final now = DateTime.now();
-    final exams = getAllExams();
+    final exams = await getAllExams();
     
     for (var exam in exams) {
       if (exam.releaseDate.isAfter(now)) {
@@ -109,8 +128,8 @@ class ExamService {
   }
 
   // Get days until next exam
-  int getDaysUntilNextExam() {
-    final nextRelease = getNextExamReleaseDate();
+  Future<int> getDaysUntilNextExam() async {
+    final nextRelease = await getNextExamReleaseDate();
     if (nextRelease == null) return 0;
     
     final now = DateTime.now();
@@ -129,8 +148,8 @@ class ExamService {
   }
 
   // Get user progress
-  Map<String, dynamic> getUserProgress() {
-    final exams = getAllExams();
+  Future<Map<String, dynamic>> getUserProgress() async {
+    final exams = await getAllExams();
     final completed = exams.where((exam) => exam.status == ExamStatus.completed).length;
     final available = exams.where((exam) => exam.status == ExamStatus.available).length;
     final locked = exams.where((exam) => exam.status == ExamStatus.locked).length;
@@ -140,12 +159,25 @@ class ExamService {
       'completed': completed,
       'available': available,
       'locked': locked,
-      'completionRate': (completed / exams.length * 100).round(),
+      'completionRate': exams.isNotEmpty ? (completed / exams.length * 100).round() : 0,
     };
   }
 
-  // Get papers for a specific exam
-  List<ExamPaperModel> getExamPapers(String examId) {
+  // Get papers for a specific exam - tries API first, falls back to mock
+  Future<List<ExamPaperModel>> getExamPapers(String examId) async {
+    try {
+      final papersData = await _examApiService.getExamPapers(examId);
+      return papersData
+          .map((json) => ExamPaperModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      // Fallback to mock data if API fails
+      return _getDummyExamPapers(examId);
+    }
+  }
+
+  // Mock exam papers data (fallback)
+  List<ExamPaperModel> _getDummyExamPapers(String examId) {
     switch (examId) {
       case 'exam_1':
         return _getExam1Papers();
@@ -161,13 +193,15 @@ class ExamService {
   }
 
   // Get Prelims papers for an exam
-  List<ExamPaperModel> getPrelimsPapers(String examId) {
-    return getExamPapers(examId).where((paper) => paper.type == PaperType.prelims).toList();
+  Future<List<ExamPaperModel>> getPrelimsPapers(String examId) async {
+    final papers = await getExamPapers(examId);
+    return papers.where((paper) => paper.type == PaperType.prelims).toList();
   }
 
   // Get Mains papers for an exam
-  List<ExamPaperModel> getMainsPapers(String examId) {
-    return getExamPapers(examId).where((paper) => paper.type == PaperType.mains).toList();
+  Future<List<ExamPaperModel>> getMainsPapers(String examId) async {
+    final papers = await getExamPapers(examId);
+    return papers.where((paper) => paper.type == PaperType.mains).toList();
   }
 
   // Exam 1 Papers (Q1 2025)

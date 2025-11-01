@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../data/services/mock_data_service.dart';
+import '../../../data/services/auth_service.dart';
 import '../../../data/models/user_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/routes/app_router.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -13,17 +16,46 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final MockDataService _mockDataService = MockDataService();
-  late UserModel _user;
+  final AuthService _authService = AuthService();
+  UserModel? _user;
   bool _isDarkMode = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _user = _mockDataService.getCurrentUser();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final user = await _mockDataService.getCurrentUser();
+      setState(() {
+        _user = user;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading || _user == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          title: const Text('👤 Profile'),
+          elevation: 0,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -74,7 +106,7 @@ class _ProfilePageState extends State<ProfilePage> {
             radius: 50,
             backgroundColor: Colors.white.withOpacity(0.2),
             child: Text(
-              _user.name.split(' ').map((name) => name[0]).join(''),
+              _user!.name.split(' ').map((name) => name[0]).join(''),
               style: AppTextStyles.headline.copyWith(
                 color: Colors.white,
                 fontSize: 32,
@@ -84,7 +116,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           const SizedBox(height: 16),
           Text(
-            _user.name,
+            _user!.name,
             style: AppTextStyles.headline.copyWith(
               color: Colors.white,
               fontSize: 24,
@@ -93,7 +125,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           const SizedBox(height: 8),
           Text(
-            _user.email,
+            _user!.email,
             style: AppTextStyles.bodyLarge.copyWith(
               color: Colors.white70,
             ),
@@ -127,10 +159,10 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildInfoRow('Email', _user.email),
-          _buildInfoRow('Member Since', _user.memberSince),
-          _buildInfoRow('Overall Progress', '${_user.overallProgress.toInt()}%'),
-          _buildInfoRow('Average Accuracy', '${_user.averageAccuracy.toInt()}%'),
+          _buildInfoRow('Email', _user!.email),
+          _buildInfoRow('Member Since', _user!.memberSince),
+          _buildInfoRow('Overall Progress', '${_user!.overallProgress.toInt()}%'),
+          _buildInfoRow('Average Accuracy', '${_user!.averageAccuracy.toInt()}%'),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -372,12 +404,47 @@ class _ProfilePageState extends State<ProfilePage> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Logout feature coming soon!'),
+              onPressed: () async {
+                // Show confirmation dialog
+                final shouldLogout = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Logout'),
+                    content: const Text('Are you sure you want to logout?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.error,
+                        ),
+                        child: const Text('Logout'),
+                      ),
+                    ],
                   ),
                 );
+
+                if (shouldLogout == true) {
+                  try {
+                    await _authService.signOut();
+                    // Router will automatically redirect to login page
+                    if (context.mounted) {
+                      context.go(AppRouter.login);
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Logout failed: ${e.toString()}'),
+                          backgroundColor: AppColors.error,
+                        ),
+                      );
+                    }
+                  }
+                }
               },
               icon: const Icon(Icons.logout),
               label: const Text('Logout'),

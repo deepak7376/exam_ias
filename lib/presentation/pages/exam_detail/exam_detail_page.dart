@@ -17,9 +17,11 @@ class ExamDetailPage extends StatefulWidget {
 
 class _ExamDetailPageState extends State<ExamDetailPage> {
   final ExamService _examService = ExamService();
-  late ExamModel _exam;
-  late List<ExamPaperModel> _prelimsPapers;
-  late List<ExamPaperModel> _mainsPapers;
+  ExamModel? _exam;
+  List<ExamPaperModel> _prelimsPapers = [];
+  List<ExamPaperModel> _mainsPapers = [];
+  bool _isLoading = false;
+  String? _error;
 
   @override
   void initState() {
@@ -27,21 +29,78 @@ class _ExamDetailPageState extends State<ExamDetailPage> {
     _loadExamData();
   }
 
-  void _loadExamData() {
-    final exams = _examService.getAllExams();
-    _exam = exams.firstWhere((exam) => exam.id == widget.examId);
-    _prelimsPapers = _examService.getPrelimsPapers(widget.examId);
-    _mainsPapers = _examService.getMainsPapers(widget.examId);
+  Future<void> _loadExamData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final exams = await _examService.getAllExams();
+      _exam = exams.firstWhere((exam) => exam.id == widget.examId);
+      _prelimsPapers = await _examService.getPrelimsPapers(widget.examId);
+      _mainsPapers = await _examService.getMainsPapers(widget.examId);
+      
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = 'Failed to load exam data: $e';
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          title: const Text('Exam Details'),
+          elevation: 0,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null || _exam == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          title: const Text('Exam Details'),
+          elevation: 0,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _error ?? 'Exam not found',
+                style: AppTextStyles.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadExamData,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        title: Text(_exam.title),
+        title: Text(_exam!.title),
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -92,7 +151,7 @@ class _ExamDetailPageState extends State<ExamDetailPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _exam.title,
+                      _exam!.title,
                       style: AppTextStyles.headline.copyWith(
                         color: Colors.white,
                         fontSize: 24,
@@ -100,7 +159,7 @@ class _ExamDetailPageState extends State<ExamDetailPage> {
                       ),
                     ),
                     Text(
-                      _exam.description,
+                      _exam!.description,
                       style: AppTextStyles.bodyLarge.copyWith(
                         color: Colors.white70,
                       ),
@@ -124,7 +183,7 @@ class _ExamDetailPageState extends State<ExamDetailPage> {
               ),
             ],
           ),
-          if (_exam.userScore != null) ...[
+          if (_exam!.userScore != null) ...[
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
@@ -137,7 +196,7 @@ class _ExamDetailPageState extends State<ExamDetailPage> {
                   const Icon(Icons.emoji_events, color: Colors.white, size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    'Your Score: ${_exam.userScore!.toStringAsFixed(1)}%',
+                    'Your Score: ${_exam!.userScore!.toStringAsFixed(1)}%',
                     style: AppTextStyles.bodyLarge.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,

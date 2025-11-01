@@ -38,26 +38,51 @@ class ExamModel {
   });
 
   factory ExamModel.fromJson(Map<String, dynamic> json) {
+    // Handle both frontend format and backend API format
+    final releaseDateStr = json['release_date'] ?? json['releaseDate'];
+    final endDateStr = json['end_date'] ?? json['endDate'];
+    
+    ExamStatus status;
+    final statusStr = (json['is_active'] == true) ? 'available' : (json['status'] ?? 'locked');
+    switch (statusStr.toString().toLowerCase()) {
+      case 'available':
+      case 'active':
+        status = ExamStatus.available;
+        break;
+      case 'completed':
+        status = ExamStatus.completed;
+        break;
+      case 'expired':
+        status = ExamStatus.expired;
+        break;
+      default:
+        status = ExamStatus.locked;
+    }
+
+    // Get exam papers to determine prelims/mains
+    final examType = json['exam_type'] ?? '';
+    final hasPrelims = examType == 'prelims' || examType == 'both';
+    final hasMains = examType == 'mains' || examType == 'both';
+
     return ExamModel(
-      id: json['id'],
-      title: json['title'],
-      description: json['description'],
-      releaseDate: DateTime.parse(json['releaseDate']),
-      endDate: DateTime.parse(json['endDate']),
-      status: ExamStatus.values.firstWhere(
-        (e) => e.toString() == 'ExamStatus.${json['status']}',
-        orElse: () => ExamStatus.locked,
-      ),
-      prelimsQuestions: json['prelimsQuestions'],
-      mainsQuestions: json['mainsQuestions'],
-      prelimsDuration: json['prelimsDuration'],
-      mainsDuration: json['mainsDuration'],
-      prelimsMarks: json['prelimsMarks'],
-      mainsMarks: json['mainsMarks'],
-      userScore: json['userScore']?.toDouble(),
-      completedAt: json['completedAt'] != null ? DateTime.parse(json['completedAt']) : null,
-      hasPrelims: json['hasPrelims'],
-      hasMains: json['hasMains'],
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      releaseDate: releaseDateStr != null ? DateTime.parse(releaseDateStr) : DateTime.now(),
+      endDate: endDateStr != null ? DateTime.parse(endDateStr) : DateTime.now().add(Duration(days: 30)),
+      status: status,
+      prelimsQuestions: json['prelims_questions'] ?? json['prelimsQuestions'] ?? 0,
+      mainsQuestions: json['mains_questions'] ?? json['mainsQuestions'] ?? 0,
+      prelimsDuration: json['prelims_duration'] ?? json['prelimsDuration'] ?? 120,
+      mainsDuration: json['mains_duration'] ?? json['mainsDuration'] ?? 180,
+      prelimsMarks: json['prelims_marks'] ?? json['prelimsMarks'] ?? 0,
+      mainsMarks: json['mains_marks'] ?? json['mainsMarks'] ?? 0,
+      userScore: (json['user_score'] ?? json['userScore'])?.toDouble(),
+      completedAt: (json['completed_at'] ?? json['completedAt']) != null 
+          ? DateTime.parse(json['completed_at'] ?? json['completedAt']) 
+          : null,
+      hasPrelims: hasPrelims,
+      hasMains: hasMains,
     );
   }
 

@@ -14,7 +14,10 @@ class TestsPage extends StatefulWidget {
 
 class _TestsPageState extends State<TestsPage> {
   final ExamService _examService = ExamService();
-  late Map<String, dynamic> _userProgress;
+  Map<String, dynamic> _userProgress = {};
+  List<ExamModel> _exams = [];
+  bool _isLoading = false;
+  String? _error;
 
   @override
   void initState() {
@@ -22,12 +25,75 @@ class _TestsPageState extends State<TestsPage> {
     _loadExams();
   }
 
-  void _loadExams() {
-    _userProgress = _examService.getUserProgress();
+  Future<void> _loadExams() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      _userProgress = await _examService.getUserProgress();
+      _exams = await _examService.getAllExams();
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = 'Failed to load progress: $e';
+        // Set default values for error state
+        _userProgress = {
+          'total': 0,
+          'completed': 0,
+          'available': 0,
+          'locked': 0,
+          'completionRate': 0,
+        };
+        _exams = [];
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          title: const Text('📝 Tests'),
+          elevation: 0,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          title: const Text('📝 Tests'),
+          elevation: 0,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Error: $_error', style: AppTextStyles.bodyMedium),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadExams,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -147,8 +213,6 @@ class _TestsPageState extends State<TestsPage> {
   }
 
   Widget _buildExamsList() {
-    final allExams = _examService.getAllExams();
-    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -159,7 +223,13 @@ class _TestsPageState extends State<TestsPage> {
           ),
         ),
         const SizedBox(height: 16),
-        ...allExams.map((exam) => _buildExamCard(exam)).toList(),
+        if (_exams.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Center(child: Text('No exams available')),
+          )
+        else
+          ..._exams.map((exam) => _buildExamCard(exam)).toList(),
       ],
     );
   }
@@ -393,12 +463,30 @@ class _TestsPageState extends State<TestsPage> {
     }
   }
 
-  Widget _buildScheduleCard() {
-    final nextRelease = _examService.getNextExamReleaseDate();
-    final daysUntilNext = _examService.getDaysUntilNextExam();
+  Future<Map<String, dynamic>> _loadScheduleData() async {
+    final nextRelease = await _examService.getNextExamReleaseDate();
+    final daysUntilNext = await _examService.getDaysUntilNextExam();
     final currentQuarter = _examService.getCurrentQuarter();
+    return {
+      'nextRelease': nextRelease,
+      'daysUntilNext': daysUntilNext,
+      'currentQuarter': currentQuarter,
+    };
+  }
 
-    return Container(
+  Widget _buildScheduleCard() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _loadScheduleData(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final data = snapshot.data!;
+        final nextRelease = data['nextRelease'] as DateTime?;
+        final daysUntilNext = data['daysUntilNext'] as int;
+        final currentQuarter = data['currentQuarter'] as String;
+
+        return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
@@ -470,6 +558,8 @@ class _TestsPageState extends State<TestsPage> {
           ],
         ],
       ),
+        );
+      },
     );
   }
 

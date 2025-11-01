@@ -19,9 +19,11 @@ class SubjectPage extends StatefulWidget {
 class _SubjectPageState extends State<SubjectPage> {
   final MockDataService _mockDataService = MockDataService();
   final PolityContentService _polityService = PolityContentService();
-  late List<TestModel> _tests;
-  late List<ChapterModel> _chapters;
+  List<TestModel> _tests = [];
+  List<ChapterModel> _chapters = [];
   String _subjectName = '';
+  bool _isLoading = false;
+  String? _error;
 
   @override
   void initState() {
@@ -29,16 +31,33 @@ class _SubjectPageState extends State<SubjectPage> {
     _loadTests();
   }
 
-  void _loadTests() {
-    if (widget.subjectId == 'polity') {
-      _tests = _polityService.getChapterTests();
-      _tests.add(_polityService.getFullLengthTest());
-      _chapters = _polityService.getPolityChapters();
-    } else {
-      _tests = _mockDataService.getTestsForSubject(widget.subjectId);
-      _chapters = [];
+  Future<void> _loadTests() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      if (widget.subjectId == 'polity') {
+        final chapterTests = await _polityService.getChapterTests();
+        final fullTest = _polityService.getFullLengthTest();
+        _tests = [...chapterTests, fullTest];
+        _chapters = await _polityService.getPolityChapters();
+      } else {
+        _tests = await _mockDataService.getTestsForSubject(widget.subjectId);
+        _chapters = [];
+      }
+      _subjectName = _getSubjectName(widget.subjectId);
+      
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = 'Failed to load data: $e';
+      });
     }
-    _subjectName = _getSubjectName(widget.subjectId);
   }
 
   String _getSubjectName(String subjectId) {
@@ -56,6 +75,44 @@ class _SubjectPageState extends State<SubjectPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          title: Text('$_subjectName 📘'),
+          elevation: 0,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          title: Text('$_subjectName 📘'),
+          elevation: 0,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Error: $_error', style: AppTextStyles.bodyMedium),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadTests,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(

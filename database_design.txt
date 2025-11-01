@@ -123,45 +123,66 @@ CREATE TABLE chapters (
 ```
 
 ### 4. **Questions Table**
-```sql
 CREATE TABLE questions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    chapter_id VARCHAR(50) REFERENCES chapters(id) ON DELETE CASCADE,
-    question_text TEXT NOT NULL,
-    question_type VARCHAR(20) NOT NULL, -- 'mcq', 'true_false', 'fill_blank', 'essay'
-    difficulty_level VARCHAR(20) DEFAULT 'intermediate',
-    marks INTEGER DEFAULT 1,
-    negative_marks DECIMAL(3,2) DEFAULT 0.33,
-    explanation TEXT,
-    source VARCHAR(255), -- Reference book, year, etc.
-    tags TEXT[], -- Array of tags for categorization
-    is_published BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
 
-### 5. **Question Options Table**
-```sql
-CREATE TABLE question_options (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
-    option_text TEXT NOT NULL,
-    option_letter VARCHAR(1) NOT NULL, -- A, B, C, D
-    is_correct BOOLEAN DEFAULT false,
-    explanation TEXT, -- Why this option is correct/incorrect
-    order_index INTEGER NOT NULL,
-    
-    UNIQUE(question_id, option_letter)
+    -- Core content
+    question_text TEXT NOT NULL,
+    question_type VARCHAR(30) NOT NULL CHECK (
+        question_type IN ('mcq', 'descriptive', 'assertion_reason', 'match', 'image_based')
+    ),
+    options JSONB,
+    correct_answer JSONB,
+    solution_explanation TEXT,
+
+    -- Classification
+    difficulty_level VARCHAR(20) DEFAULT 'medium' CHECK (
+        difficulty_level IN ('easy', 'medium', 'hard', 'adaptive')
+    ),
+    ai_difficulty_score FLOAT DEFAULT 0.0,
+    subject_id VARCHAR(50) REFERENCES subjects(id) ON DELETE CASCADE,
+    chapter_id VARCHAR(50) REFERENCES chapters(id) ON DELETE CASCADE,
+    tags JSONB,
+
+    -- Metadata
+    source_type VARCHAR(20) DEFAULT 'manual' CHECK (
+        source_type IN ('manual', 'ai_generated', 'past_paper')
+    ),
+    created_by VARCHAR(100),
+    verified BOOLEAN DEFAULT FALSE,
+    review_status VARCHAR(20) DEFAULT 'pending' CHECK (
+        review_status IN ('pending', 'approved', 'rejected')
+    ),
+
+    -- Media
+    image_url TEXT,
+
+    -- Usage analytics
+    last_used TIMESTAMP WITH TIME ZONE,
+    usage_count INT DEFAULT 0,
+    avg_time_taken FLOAT DEFAULT 0.0,
+    accuracy_rate FLOAT DEFAULT 0.0,
+    avg_score_impact FLOAT DEFAULT 0.0,
+
+    -- Operational controls
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+    -- Full-text search (optional but powerful)
+    search_vector tsvector GENERATED ALWAYS AS (
+        setweight(to_tsvector('english', coalesce(question_text, '')), 'A') ||
+        setweight(to_tsvector('english', coalesce(solution_explanation, '')), 'B') ||
+        setweight(to_tsvector('english', coalesce(array_to_string(tags::text[], ' '), '')), 'C')
+    ) STORED
 );
-```
 
 ### 6. **Tests Table**
 ```sql
 CREATE TABLE tests (
-    id VARCHAR(50) PRIMARY KEY,
-    subject_id VARCHAR(50) REFERENCES subjects(id) ON DELETE CASCADE,
-    chapter_id VARCHAR(50) REFERENCES chapters(id) ON DELETE SET NULL, -- NULL for full-length tests
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    subject_id VARCHAR(50) REFERENCES subjects(id) ON DELETE CASCADE, -- Polity, Geography, Economy
+    chapter_id VARCHAR(50) REFERENCES chapters(id) ON DELETE SET NULL, -- NULL for full-length tests, econ_ch2, pol_ch1
     title VARCHAR(255) NOT NULL,
     description TEXT,
     test_type VARCHAR(20) NOT NULL, -- 'chapter', 'full_length', 'mock', 'practice'
@@ -191,6 +212,7 @@ CREATE TABLE test_questions (
     UNIQUE(test_id, question_order)
 );
 ```
+123, test_1, quest_1, 1, 1
 
 ### 8. **User Test Attempts Table**
 ```sql

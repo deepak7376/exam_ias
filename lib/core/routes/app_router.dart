@@ -1,4 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../presentation/pages/auth/login_page.dart';
+import '../../presentation/pages/auth/auth_callback_page.dart';
 import '../../presentation/pages/onboarding/onboarding_page.dart';
 import '../../presentation/pages/home/home_page.dart';
 import '../../presentation/pages/subject/subject_page.dart';
@@ -12,6 +16,8 @@ import '../../presentation/pages/tests/tests_page.dart';
 import '../../presentation/pages/exam_detail/exam_detail_page.dart';
 
 class AppRouter {
+  static const String login = '/login';
+  static const String authCallback = '/auth/callback';
   static const String onboarding = '/onboarding';
   static const String home = '/';
   static const String subject = '/subject';
@@ -24,11 +30,56 @@ class AppRouter {
   static const String tests = '/tests';
   static const String exam = '/exam';
 
+  // Auth state listener
+  static final _AuthStateNotifier authStateNotifier = _AuthStateNotifier();
+  
+  static void init() {
+    Supabase.instance.client.auth.onAuthStateChange.listen((authState) {
+      authStateNotifier.update();
+    });
+  }
+
   static final GoRouter router = GoRouter(
-    initialLocation: onboarding,
+    initialLocation: login,
+    redirect: (context, state) {
+      final session = Supabase.instance.client.auth.currentSession;
+      final isLoggedIn = session != null;
+      final currentLocation = state.matchedLocation;
+      final isLoginRoute = currentLocation == login;
+      final isAuthCallbackRoute = currentLocation == authCallback;
+      
+      // Allow access to auth callback page (OAuth redirect)
+      if (isAuthCallbackRoute) {
+        return null; // Allow access
+      }
+      
+      // If user is logged in and trying to access login, redirect to home
+      if (isLoggedIn && isLoginRoute) {
+        return home;
+      }
+      
+      // If user is not logged in and trying to access protected routes, redirect to login
+      if (!isLoggedIn && !isLoginRoute) {
+        return login;
+      }
+      
+      return null; // No redirect needed
+    },
+    refreshListenable: authStateNotifier,
     routes: [
       GoRoute(
+        path: login,
+        name: 'login',
+        builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
+        path: authCallback,
+        name: 'authCallback',
+        builder: (context, state) => const AuthCallbackPage(),
+      ),
+      GoRoute(
         path: onboarding,
+        name: 'onboarding',
         builder: (context, state) => const OnboardingPage(),
       ),
       GoRoute(
@@ -89,4 +140,11 @@ class AppRouter {
       ),
     ],
   );
+}
+
+/// Helper class to listen to auth state changes for GoRouter
+class _AuthStateNotifier extends ChangeNotifier {
+  void update() {
+    notifyListeners();
+  }
 }

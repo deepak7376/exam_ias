@@ -46,6 +46,18 @@ dependencies:
   
   # Utilities
   intl: ^0.19.0
+  
+  # HTTP Client
+  http: ^1.2.0
+  
+  # Dependency Injection
+  get_it: ^7.7.0
+  
+  # Supabase Flutter SDK
+  supabase_flutter: ^2.0.0
+  
+  # URL Launcher for deep linking
+  url_launcher: ^6.2.0
 
 dev_dependencies:
   flutter_test:
