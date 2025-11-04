@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../services/auth_service.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -14,6 +15,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   final int _totalPages = 3;
+  final AuthService _authService = AuthService();
+  bool _isLoading = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -38,7 +42,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 },
                 children: [
                   _buildOnboardingPage(
-                    'Welcome to IAS Test Series',
+                    'Welcome to IASPilot',
                     'Your comprehensive preparation partner for UPSC Civil Services Examination',
                     '🏛️',
                     'Get ready to ace your UPSC preparation with our structured test series, detailed analytics, and AI-powered feedback.',
@@ -150,21 +154,79 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ],
             ),
           ] else ...[
+            // Google Sign-In Button on last page
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _startApp,
+              height: 56,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _signInWithGoogle,
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(
+                        Icons.login,
+                        size: 24,
+                        color: AppColors.textPrimary,
+                      ),
+                label: Text(
+                  _isLoading ? 'Signing in...' : 'Continue with Google',
+                  style: AppTextStyles.buttonLarge,
+                ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppColors.textPrimary,
+                  elevation: 2,
+                  shadowColor: AppColors.shadowMedium,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: AppColors.borderLight,
+                      width: 1,
+                    ),
                   ),
                 ),
-                child: const Text('Get Started'),
               ),
             ),
+            // Error message
+            if (_error != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.errorLight,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.error.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      color: AppColors.error,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _error!,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.error,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ],
       ),
@@ -199,11 +261,30 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   void _skipOnboarding() {
-    _startApp();
+    // Skip to sign in
+    _signInWithGoogle();
   }
 
   void _startApp() {
     // Navigate to home page
     context.go('/');
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      await _authService.signInWithGoogle();
+      // Navigation will happen automatically via auth state listener
+      // The router will detect auth state change and redirect to home
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = 'Sign in failed: ${e.toString()}';
+      });
+    }
   }
 }

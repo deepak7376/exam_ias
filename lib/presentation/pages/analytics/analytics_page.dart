@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../data/services/mock_data_service.dart';
+import '../../../services/mock_data_service.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/models/subject_model.dart';
 import '../../../core/constants/app_colors.dart';

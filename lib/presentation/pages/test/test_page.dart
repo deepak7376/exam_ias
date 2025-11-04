@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../data/services/mock_data_service.dart';
+import '../../../services/mock_data_service.dart';
 import '../../../data/models/question_model.dart';
 import '../../../data/models/test_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/routes/app_router.dart';
 import 'dart:async';
 
 class TestPage extends StatefulWidget {
@@ -68,14 +69,14 @@ class _TestPageState extends State<TestPage> {
       
       // If test not found, create a default test model
       if (foundTest == null) {
-        final dailyQuiz = _mockDataService.getDailyQuiz();
+        final dailyQuiz = await _mockDataService.getDailyQuiz();
         if (widget.testId == dailyQuiz['id']) {
           _test = TestModel(
             id: widget.testId,
-            subjectId: 'general',
+            subjectId: dailyQuiz['subject_id'] ?? 'general',
             title: dailyQuiz['title'] ?? 'Quiz',
-            description: '',
-            duration: dailyQuiz['durationMinutes'] ?? 20,
+            description: dailyQuiz['description'] ?? '',
+            duration: dailyQuiz['duration_minutes'] ?? 20,
             totalQuestions: _questions.length,
             status: TestStatus.pending,
             canRetake: false,
@@ -375,9 +376,12 @@ class _TestPageState extends State<TestPage> {
   }
 
   void _showExitDialog() {
+    // Store the page context to use for navigation
+    final pageContext = context;
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
         ),
@@ -409,7 +413,7 @@ class _TestPageState extends State<TestPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text(
               'Cancel',
               style: AppTextStyles.buttonMedium.copyWith(
@@ -419,8 +423,22 @@ class _TestPageState extends State<TestPage> {
           ),
           FilledButton(
             onPressed: () {
-              Navigator.pop(context);
-              context.pop();
+              // Close the dialog first
+              Navigator.of(dialogContext).pop();
+              
+              // Then navigate back using the page context
+              if (pageContext.mounted) {
+                // Stop the timer if running
+                _timer?.cancel();
+                
+                // Navigate back to previous page
+                if (pageContext.canPop()) {
+                  pageContext.pop();
+                } else {
+                  // If can't pop, go to home
+                  pageContext.go(AppRouter.home);
+                }
+              }
             },
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.error,

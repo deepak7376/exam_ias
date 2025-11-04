@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
-import '../../../data/services/mock_data_service.dart';
-import '../../../data/services/auth_service.dart';
+import '../../../services/mock_data_service.dart';
+import '../../../services/auth_service.dart';
 import '../../../data/models/user_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
@@ -429,17 +430,36 @@ class _ProfilePageState extends State<ProfilePage> {
 
                 if (shouldLogout == true) {
                   try {
-                    await _authService.signOut();
-                    // Router will automatically redirect to login page
+                    // Show loading indicator
                     if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Logging out...'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    }
+                    
+                    // Sign out from Supabase
+                    await _authService.signOut();
+                    
+                    // Wait a bit to ensure auth state is updated
+                    await Future.delayed(const Duration(milliseconds: 300));
+                    
+                    // Navigate to login page
+                    // Router should redirect automatically, but we'll also navigate manually
+                    if (context.mounted) {
+                      // Use replace instead of go to prevent going back
                       context.go(AppRouter.login);
                     }
                   } catch (e) {
+                    debugPrint('Logout error: $e');
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text('Logout failed: ${e.toString()}'),
                           backgroundColor: AppColors.error,
+                          duration: const Duration(seconds: 3),
                         ),
                       );
                     }

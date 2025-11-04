@@ -1,3 +1,10 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
 allprojects {
     repositories {
         google()
@@ -8,9 +15,25 @@ allprojects {
 rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
-}
-subprojects {
-    project.evaluationDependsOn(":app")
+    
+    afterEvaluate {
+        if (project.hasProperty("android")) {
+            android {
+                // Ensure compileSdk is set for all subprojects
+                compileSdk = 35
+            }
+        }
+        
+        // Provide flutter properties for plugins that need them
+        if (!project.hasProperty('flutter')) {
+            project.ext.flutter = [
+                compileSdkVersion: 35,
+                minSdkVersion: 21,
+                targetSdkVersion: 35,
+                ndkVersion: ""
+            ]
+        }
+    }
 }
 
 tasks.register("clean", Delete) {

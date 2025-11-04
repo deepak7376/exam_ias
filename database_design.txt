@@ -1,63 +1,3 @@
-# 🗄️ IAS Test Series App - Database Design Document
-
-## 📋 Table of Contents
-1. [Database Overview](#database-overview)
-2. [Technology Recommendation](#technology-recommendation)
-3. [Core Tables](#core-tables)
-4. [Relationships](#relationships)
-5. [Indexes & Performance](#indexes--performance)
-6. [Security Considerations](#security-considerations)
-7. [Migration Strategy](#migration-strategy)
-8. [API Endpoints](#api-endpoints)
-
----
-
-## 🎯 Database Overview
-
-### Application Requirements
-- **User Management**: Registration, authentication, profile management
-- **Subject Management**: Multiple subjects (Polity, Geography, Economy, etc.)
-- **Content Management**: Chapters, tests, questions, answers
-- **Progress Tracking**: User progress, analytics, performance metrics
-- **Exam System**: Real-time exams, results, feedback
-- **Analytics**: Performance insights, recommendations
-
-### Data Volume Estimates
-- **Users**: 10,000 - 100,000 (scalable)
-- **Questions**: 50,000+ (across all subjects)
-- **Tests**: 1,000+ (chapter tests + full exams)
-- **User Responses**: 1M+ (grows with usage)
-- **Analytics Data**: 10M+ records
-
----
-
-## 🚀 Technology Recommendation
-
-### **Recommended: Supabase** ⭐
-
-#### Why Supabase over Firebase?
-
-| Feature | Supabase | Firebase |
-|---------|----------|----------|
-| **Database** | PostgreSQL (SQL) | Firestore (NoSQL) |
-| **Querying** | SQL (familiar) | Complex queries |
-| **Relationships** | Native foreign keys | Manual references |
-| **ACID Compliance** | ✅ Full ACID | ❌ Eventual consistency |
-| **Real-time** | ✅ Built-in | ✅ Built-in |
-| **Authentication** | ✅ Built-in | ✅ Built-in |
-| **File Storage** | ✅ Built-in | ✅ Built-in |
-| **Pricing** | More predictable | Can be expensive |
-| **Learning Curve** | SQL knowledge | NoSQL concepts |
-
-#### **Key Advantages for IAS App:**
-1. **Complex Queries**: Need complex analytics queries (SQL is better)
-2. **Data Integrity**: ACID compliance for exam data
-3. **Relationships**: Strong relationships between users, tests, questions
-4. **Cost Predictability**: Fixed pricing vs usage-based
-5. **PostgreSQL**: Rich ecosystem, extensions, full-text search
-
----
-
 ## 📊 Core Tables
 
 ### 1. **Users Table**
@@ -65,7 +5,6 @@
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     phone VARCHAR(20),
     avatar_url TEXT,
@@ -129,7 +68,16 @@ CREATE TABLE questions (
     -- Core content
     question_text TEXT NOT NULL,
     question_type VARCHAR(30) NOT NULL CHECK (
-        question_type IN ('mcq', 'descriptive', 'assertion_reason', 'match', 'image_based')
+        question_type IN (mcq_single
+mcq_multiple
+assertion_reason
+match_following
+true_false
+short_answer
+long_answer
+case_study
+essay
+)
     ),
     options JSONB,
     correct_answer JSONB,
@@ -168,13 +116,8 @@ CREATE TABLE questions (
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-
-    -- Full-text search (optional but powerful)
-    search_vector tsvector GENERATED ALWAYS AS (
-        setweight(to_tsvector('english', coalesce(question_text, '')), 'A') ||
-        setweight(to_tsvector('english', coalesce(solution_explanation, '')), 'B') ||
-        setweight(to_tsvector('english', coalesce(array_to_string(tags::text[], ' '), '')), 'C')
-    ) STORED
+    marks,
+    negative_marks
 );
 
 ### 6. **Tests Table**
@@ -185,7 +128,7 @@ CREATE TABLE tests (
     chapter_id VARCHAR(50) REFERENCES chapters(id) ON DELETE SET NULL, -- NULL for full-length tests, econ_ch2, pol_ch1
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    test_type VARCHAR(20) NOT NULL, -- 'chapter', 'full_length', 'mock', 'practice'
+    test_type VARCHAR(20) NOT NULL, -- 'chapter_wise', 'subject_wise', 'daily_quiz', 'practice'
     duration_minutes INTEGER NOT NULL,
     total_questions INTEGER NOT NULL,
     total_marks INTEGER NOT NULL,

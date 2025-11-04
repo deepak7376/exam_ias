@@ -2,6 +2,7 @@ class QuestionModel {
   final String id;
   final String testId;
   final String question;
+  final String questionType;
   final List<String> options;
   final int correctAnswerIndex;
   final String? explanation;
@@ -11,6 +12,7 @@ class QuestionModel {
     required this.id,
     required this.testId,
     required this.question,
+    required this.questionType,
     required this.options,
     required this.correctAnswerIndex,
     this.explanation,
@@ -62,6 +64,7 @@ class QuestionModel {
       testId: json['test_id'] ?? json['testId'] ?? '',
       question: questionText,
       options: options,
+      questionType: json['question_type'] ?? json['questionType'] ?? 'mcq_single',
       correctAnswerIndex: correctIndex,
       explanation: json['solution_explanation'] ?? json['explanation'],
       topic: json['topic'] ?? json['chapter_id'] ?? '',

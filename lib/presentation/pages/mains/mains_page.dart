@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../data/services/polity_content_service.dart';
+import '../../../services/polity_content_service.dart';
 import '../../../data/models/mains_question_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';

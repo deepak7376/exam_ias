@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../data/services/auth_service.dart';
+import '../../../services/auth_service.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 
@@ -74,7 +74,7 @@ class _LoginPageState extends State<LoginPage> {
                 
                 // App Title
                 Text(
-                  'IAS Test Series',
+                  'IASPilot',
                   style: AppTextStyles.displayLarge.copyWith(
                     color: AppColors.primary,
                     fontWeight: FontWeight.bold,

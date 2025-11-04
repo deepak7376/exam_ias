@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../presentation/pages/auth/login_page.dart';
@@ -35,7 +36,10 @@ class AppRouter {
   
   static void init() {
     Supabase.instance.client.auth.onAuthStateChange.listen((authState) {
-      authStateNotifier.update();
+      final AuthChangeEvent event = authState.event;
+      debugPrint('Auth state changed: $event');
+      // Force update the router when auth state changes
+      authStateNotifier.forceUpdate();
     });
   }
 
@@ -145,6 +149,11 @@ class AppRouter {
 /// Helper class to listen to auth state changes for GoRouter
 class _AuthStateNotifier extends ChangeNotifier {
   void update() {
+    notifyListeners();
+  }
+  
+  // Force a refresh when auth state changes
+  void forceUpdate() {
     notifyListeners();
   }
 }

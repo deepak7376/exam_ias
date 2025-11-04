@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../data/services/mock_data_service.dart';
-import '../../../data/services/subject_content_service.dart';
-import '../../../data/services/exam_service.dart';
+import '../../../services/mock_data_service.dart';
+import '../../../services/subject_content_service.dart';
+import '../../../services/exam_service.dart';
+import '../../../services/auth_service.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/models/subject_model.dart';
 import '../../../data/models/exam_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/routes/app_router.dart';
 import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
@@ -21,6 +23,7 @@ class _HomePageState extends State<HomePage> {
   final MockDataService _mockDataService = MockDataService();
   final SubjectContentService _subjectContentService = SubjectContentService();
   final ExamService _examService = ExamService();
+  final AuthService _authService = AuthService();
   late UserModel _user;
   late List<SubjectModel> _subjects;
   late Map<String, dynamic> _overallProgress;
@@ -155,7 +158,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'IAS Test Series',
+                    'IASPilot',
                     style: AppTextStyles.headline.copyWith(
                       color: AppColors.primary,
                       fontSize: 22,
@@ -312,7 +315,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildDailyQuizChallenge() {
-    final dailyQuiz = _mockDataService.getDailyQuiz();
+    final dailyQuizFuture = _mockDataService.getDailyQuiz();
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -328,98 +331,128 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Daily Quiz Challenge',
-            style: AppTextStyles.headlineSmall.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Complete today test to maintain you steak',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: FutureBuilder<Map<String, dynamic>>(
+        future: dailyQuizFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+          
+          final dailyQuiz = snapshot.data ?? {};
+          
+          // Extract simple fields from API response
+          final title = dailyQuiz['title'] ?? 'Daily Quiz';
+          final description = dailyQuiz['description'] ?? '';
+          final totalQuestions = dailyQuiz['total_questions'] ?? 0;
+          final durationMinutes = dailyQuiz['duration_minutes'] ?? 0;
+          final subjectId = dailyQuiz['subject_id'] ?? '';
+          final quizId = dailyQuiz['id'] ?? '';
+          
+          // Format subject for display (capitalize first letter)
+          final subjectDisplay = subjectId.isNotEmpty 
+              ? subjectId[0].toUpperCase() + subjectId.substring(1)
+              : 'General';
+          
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Daily Quiz Challenge',
+                style: AppTextStyles.headlineSmall.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Complete today test to maintain you streak',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: AppTextStyles.bodyLarge.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.warning.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '🔥 ${dailyQuiz['total_attempts'] ?? 0} days',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.warning,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     Text(
-                      dailyQuiz['title'],
-                      style: AppTextStyles.bodyLarge.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+                      '$totalQuestions quess. $durationMinutes min',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.warning.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Topics: $subjectDisplay',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
                       ),
-                      child: Text(
-                        '🔥 ${dailyQuiz['currentStreak']} days',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.warning,
-                          fontWeight: FontWeight.w600,
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        onPressed: quizId.isNotEmpty 
+                            ? () => context.go('/test/$quizId')
+                            : null,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text(
+                          'start Quiz',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '${dailyQuiz['totalQuestions']} quess. ${dailyQuiz['durationMinutes']} min',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Topics: ${(dailyQuiz['topics'] as List).join(' ')}',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton(
-                    onPressed: () => context.go('/test/${dailyQuiz['id']}'),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: Text(
-                      'start Quiz',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1720,9 +1753,64 @@ class _HomePageState extends State<HomePage> {
                 color: AppColors.error,
               ),
             ),
-            onTap: () {
-              Navigator.pop(context);
-              // Handle logout
+            onTap: () async {
+              Navigator.pop(context); // Close drawer first
+              
+              // Show confirmation dialog
+              final shouldLogout = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Logout'),
+                  content: const Text('Are you sure you want to logout?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                      ),
+                      child: const Text('Logout'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (shouldLogout == true && context.mounted) {
+                try {
+                  // Show loading indicator
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Logging out...'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                  
+                  // Sign out from Supabase
+                  await _authService.signOut();
+                  
+                  // Wait a bit to ensure auth state is updated
+                  await Future.delayed(const Duration(milliseconds: 300));
+                  
+                  // Navigate to login page
+                  if (context.mounted) {
+                    context.go(AppRouter.login);
+                  }
+                } catch (e) {
+                  debugPrint('Logout error: $e');
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Logout failed: ${e.toString()}'),
+                        backgroundColor: AppColors.error,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                }
+              }
             },
           ),
         ],

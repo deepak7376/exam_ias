@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../data/services/mock_data_service.dart';
-import '../../../data/services/polity_content_service.dart';
+import '../../../services/mock_data_service.dart';
+import '../../../services/polity_content_service.dart';
 import '../../../data/models/test_model.dart';
 import '../../../data/models/chapter_model.dart';
 import '../../../core/constants/app_colors.dart';
@@ -39,10 +39,10 @@ class _SubjectPageState extends State<SubjectPage> {
 
     try {
       if (widget.subjectId == 'polity') {
-        final chapterTests = await _polityService.getChapterTests();
-        final fullTest = _polityService.getFullLengthTest();
+        final chapterTests = await _polityService.getChapterTests(); //tests chapter_id, subject_id
+        final fullTest = _polityService.getFullLengthTest(); //dummy data
         _tests = [...chapterTests, fullTest];
-        _chapters = await _polityService.getPolityChapters();
+        _chapters = await _polityService.getPolityChapters(); ////'/subjects/$subjectId/chapters'
       } else {
         _tests = await _mockDataService.getTestsForSubject(widget.subjectId);
         _chapters = [];
@@ -70,6 +70,28 @@ class _SubjectPageState extends State<SubjectPage> {
         return 'Economy';
       default:
         return 'Subject';
+    }
+  }
+
+  String? _getTestIdForChapter(ChapterModel chapter) {
+    // Find test by matching both subject_id and chapter_id
+    try {
+      final matchingTest = _tests.firstWhere(
+        (test) => 
+          test.subjectId == chapter.subjectId && 
+          test.chapterId == chapter.id,
+        orElse: () => _tests.first,
+      );
+      
+      // Only return if both match (not just the fallback)
+      if (matchingTest.subjectId == chapter.subjectId && 
+          matchingTest.chapterId == chapter.id) {
+        return matchingTest.id;
+      }
+      
+      return null;
+    } catch (e) {
+      return null;
     }
   }
 
@@ -246,7 +268,7 @@ class _SubjectPageState extends State<SubjectPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Indian Polity Module',
+                      '$_subjectName 📘',
                       style: AppTextStyles.headline.copyWith(
                         color: Colors.white,
                         fontSize: 22,
@@ -427,7 +449,12 @@ class _SubjectPageState extends State<SubjectPage> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => context.go('/test/test_${chapter.id}'),
+              onPressed: () {
+                final testId = _getTestIdForChapter(chapter);
+                if (testId != null) {
+                  context.go('/test/$testId');
+                }
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: chapter.isCompleted ? AppColors.success : AppColors.primary,
                 foregroundColor: Colors.white,

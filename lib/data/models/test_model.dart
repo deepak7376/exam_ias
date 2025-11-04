@@ -3,6 +3,7 @@ enum TestStatus { pending, completed, retry }
 class TestModel {
   final String id;
   final String subjectId;
+  final String? chapterId; // nullable because full-length tests don't have chapter_id
   final String title;
   final String description;
   final int duration; // in minutes
@@ -15,6 +16,7 @@ class TestModel {
   TestModel({
     required this.id,
     required this.subjectId,
+    this.chapterId,
     required this.title,
     required this.description,
     required this.duration,
@@ -46,6 +48,7 @@ class TestModel {
     return TestModel(
       id: json['id'] ?? '',
       subjectId: json['subject_id'] ?? json['subjectId'] ?? '',
+      chapterId: json['chapter_id'] ?? json['chapterId'],
       title: json['title'] ?? '',
       description: json['description'] ?? '',
       duration: json['duration_minutes'] ?? json['duration'] ?? 60,
@@ -61,6 +64,7 @@ class TestModel {
     return {
       'id': id,
       'subjectId': subjectId,
+      'chapterId': chapterId,
       'title': title,
       'description': description,
       'duration': duration,
